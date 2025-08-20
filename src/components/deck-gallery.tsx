@@ -129,6 +129,37 @@ export function DeckGallery({ photos }: { photos: string[] }) {
     return () => clearInterval(id);
   }, [autoplay, count, lightbox]);
 
+  // Intro shuffle: on first mount, quickly flip through the first couple of cards then return
+  const introRanRef = useRef(false);
+  useEffect(() => {
+    if (!mounted || introRanRef.current || lowPower || lightbox != null || count <= 1) return;
+    introRanRef.current = true;
+    const timeouts: number[] = [];
+    const seq = count >= 3 ? [1, 2, 0] : [1, 0];
+    let delay = 300;
+    // small flick to imply shuffle
+    timeouts.push(window.setTimeout(() => startSpringTo(0, -1.1), 150));
+    seq.forEach((i, idx) => {
+      timeouts.push(
+        window.setTimeout(() => {
+          setIndex(() => i);
+          // add subtle velocity on each change
+          startSpringTo(0, idx % 2 === 0 ? -0.9 : 0.9);
+        }, delay)
+      );
+      delay += 420;
+    });
+    const cancel = () => {
+      timeouts.forEach((t) => clearTimeout(t));
+    };
+    const root = rootRef.current;
+    root?.addEventListener("pointerdown", cancel, { once: true });
+    return () => {
+      cancel();
+      root?.removeEventListener("pointerdown", cancel as any);
+    };
+  }, [mounted, lowPower, lightbox, count]);
+
   // Spring animation util inside component scope
   const startSpringTo = (target: number, initialVelocityPxPerMs = 0) => {
     if (animRef.current) cancelAnimationFrame(animRef.current);
