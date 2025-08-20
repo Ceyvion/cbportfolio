@@ -149,7 +149,8 @@ export function DeckGallery({ photos }: { photos: string[] }) {
       );
       delay += 420;
     });
-    const cancel = (_ev: PointerEvent) => {
+    const cancel = (ev: PointerEvent) => {
+      void ev; // mark as used to satisfy no-unused-vars
       timeouts.forEach((t) => clearTimeout(t));
     };
     const root = rootRef.current;
