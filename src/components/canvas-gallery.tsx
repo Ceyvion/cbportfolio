@@ -71,12 +71,13 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    const element: HTMLDivElement = el;
     function onWheel(e: WheelEvent) {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey || e.altKey) {
         const delta = -e.deltaY * 0.0015;
         const newScale = Math.max(0.2, Math.min(3, scale * (1 + delta)));
-        const rect = el.getBoundingClientRect();
+        const rect = element.getBoundingClientRect();
         const px = e.clientX - rect.left;
         const py = e.clientY - rect.top;
         const wx = (px - tx) / scale;
