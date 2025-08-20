@@ -133,24 +133,30 @@ export function DeckGallery({ photos }: { photos: string[] }) {
   const introRanRef = useRef(false);
   useEffect(() => {
     if (!mounted || introRanRef.current || lowPower || lightbox != null || count <= 1) return;
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
     introRanRef.current = true;
     const timeouts: number[] = [];
     const seq = count >= 3 ? [1, 2, 0] : [1, 0];
-    let delay = 300;
-    // small flick to imply shuffle
-    timeouts.push(window.setTimeout(() => startSpringTo(0, -1.1), 150));
-    seq.forEach((i, idx) => {
-      timeouts.push(
-        window.setTimeout(() => {
-          setIndex(() => i);
-          // add subtle velocity on each change
-          startSpringTo(0, idx % 2 === 0 ? -0.9 : 0.9);
-        }, delay)
-      );
-      delay += 420;
+    let delay = 200;
+    const startIdle = (cb: () => void) => {
+      const anyWin = window as unknown as { requestIdleCallback?: (cb: () => void) => void };
+      if (typeof anyWin.requestIdleCallback === 'function') anyWin.requestIdleCallback(cb);
+      else setTimeout(cb, 0);
+    };
+    startIdle(() => {
+      timeouts.push(window.setTimeout(() => startSpringTo(0, -1.2), 90));
+      seq.forEach((i, idx) => {
+        timeouts.push(
+          window.setTimeout(() => {
+            setIndex(() => i);
+            startSpringTo(0, idx % 2 === 0 ? -1.0 : 1.0);
+          }, delay)
+        );
+        delay += 220;
+      });
     });
     const cancel = (ev: PointerEvent) => {
-      void ev; // mark as used to satisfy no-unused-vars
+      void ev;
       timeouts.forEach((t) => clearTimeout(t));
     };
     const root = rootRef.current;
