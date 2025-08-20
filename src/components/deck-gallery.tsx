@@ -6,6 +6,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [lowPower, setLowPower] = useState(false);
+  const [items, setItems] = useState<string[]>(() => photos);
   const [index, setIndex] = useState(0);
   const dragging = useRef<
     | null
@@ -30,7 +31,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
   const movedRef = useRef(false);
   const suppressClickRef = useRef(false);
 
-  const count = photos.length;
+  const count = items.length;
 
   // Auto low-power detection: motion preference, pointer, device memory, and quick FPS probe
   useEffect(() => {
@@ -70,6 +71,8 @@ export function DeckGallery({ photos }: { photos: string[] }) {
       if (e.key.toLowerCase() === "g") setGlossy((v) => !v);
       if (e.key.toLowerCase() === "d") setDensityIdx((i) => (i + 1) % 3);
       if (e.key.toLowerCase() === "l") setLowPower((v) => !v);
+      if (e.key.toLowerCase() === "a") setAutoplay((v) => !v);
+      if (e.key.toLowerCase() === "s") setItems((prev) => shuffleArray(prev));
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -106,6 +109,25 @@ export function DeckGallery({ photos }: { photos: string[] }) {
     { spacingX: 120, spacingY: 24, falloff: 0.07, blur: 1.2, width: "min(96vw,1080px)" },
   ] as const;
   const d = densities[densityIdx];
+
+  // Prefetch next/prev images (simple warm cache)
+  useEffect(() => {
+    if (!mounted || count === 0) return;
+    const targets = [index - 1, index + 1].filter((i) => i >= 0 && i < count);
+    targets.forEach((i) => {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = items[i];
+    });
+  }, [index, count, items, mounted]);
+
+  // Autoplay
+  const [autoplay, setAutoplay] = useState(false);
+  useEffect(() => {
+    if (!autoplay || lightbox != null || count === 0) return;
+    const id = setInterval(() => setIndex((i) => (i + 1 < count ? i + 1 : 0)), 4000);
+    return () => clearInterval(id);
+  }, [autoplay, count, lightbox]);
 
   // Spring animation util inside component scope
   const startSpringTo = (target: number, initialVelocityPxPerMs = 0) => {
@@ -286,7 +308,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
               >
                 <div className={`absolute inset-0 bg-white/[0.06] ${lowPower ? 'backdrop-blur-none' : 'backdrop-blur-sm'}`} />
                 <img
-                  src={photos[idx]}
+                  src={items[idx]}
                   alt=""
                   className={`absolute inset-0 w-full h-full object-cover ${lowPower ? '' : 'mix-blend-luminosity'}`}
                   decoding="async"
@@ -313,18 +335,43 @@ export function DeckGallery({ photos }: { photos: string[] }) {
         </div>
       </div>
 
-      {/* Lightbox */}
+      {/* Lightbox with pinch/double-tap zoom and swipe-to-dismiss */}
       {lightbox != null && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setLightbox(null)}>
-          <div className="relative w-full h-full max-w-[94vw] max-h-[94vh]" onClick={(e) => e.stopPropagation()}>
-            <img src={photos[lightbox]} alt="" className="w-full h-full object-contain" />
+        <Lightbox
+          src={items[lightbox]}
+          onClose={() => setLightbox(null)}
+          onNext={() => setLightbox((i) => (i == null ? i : (i + 1) % count))}
+          onPrev={() => setLightbox((i) => (i == null ? i : (i + count - 1) % count))}
+        />
+      )}
+
+      {/* Bottom scrubber (safe-area aware) */}
+      {mounted && count > 1 && (
+        <div className="fixed left-0 right-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0)+12px)] pt-3 bg-gradient-to-t from-black/50 via-black/30 to-transparent">
+          <div className="mx-auto max-w-xl flex items-center gap-3 text-xs">
             <button
-              className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/90 text-black grid place-items-center hover:bg-white"
-              onClick={() => setLightbox(null)}
-              aria-label="Close"
+              className="px-3 py-2 rounded-full bg-white/10 hover:bg-white/15"
+              onClick={() => setAutoplay((v) => !v)}
+              aria-label="Toggle autoplay"
             >
-              ×
+              {autoplay ? "Autoplay: On" : "Autoplay: Off"}
             </button>
+            <button
+              className="px-3 py-2 rounded-full bg-white/10 hover:bg-white/15"
+              onClick={() => setItems((prev) => shuffleArray(prev))}
+              aria-label="Shuffle now"
+            >
+              Shuffle
+            </button>
+            <input
+              aria-label="Scrub"
+              type="range"
+              min={0}
+              max={count - 1}
+              value={index}
+              onChange={(e) => setIndex(Number(e.target.value))}
+              className="flex-1 accent-white/80"
+            />
           </div>
         </div>
       )}
@@ -351,4 +398,162 @@ function seededJitter(seed: number) {
   };
 }
 
-// no-op placeholder removed; in-component startSpringTo handles spring animation
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function Lightbox({
+  src,
+  onClose,
+  onNext,
+  onPrev,
+}: {
+  src: string;
+  onClose: () => void;
+  onNext: () => void;
+  onPrev: () => void;
+}) {
+  const [scale, setScale] = useState(1);
+  const [tx, setTx] = useState(0);
+  const [ty, setTy] = useState(0);
+  const [bgOpacity, setBgOpacity] = useState(0.9);
+  const lastTapRef = useRef<number>(0);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const start = useRef({ scale: 1, tx: 0, ty: 0, dist: 0, cx: 0, cy: 0, y0: 0 });
+
+  const onPointerDown = (e: ReactPointerEvent) => {
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 1) {
+      start.current = { scale, tx, ty, dist: 0, cx: e.clientX, cy: e.clientY, y0: e.clientY };
+    } else if (pointers.current.size === 2) {
+      const [a, b] = Array.from(pointers.current.values());
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      start.current = {
+        scale,
+        tx,
+        ty,
+        dist: Math.hypot(dx, dy),
+        cx: (a.x + b.x) / 2,
+        cy: (a.y + b.y) / 2,
+        y0: start.current.y0,
+      };
+    }
+  };
+
+  const onPointerMove = (e: ReactPointerEvent) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.current.size === 2) {
+      const [a, b] = Array.from(pointers.current.values());
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const dist = Math.hypot(dx, dy);
+      const s = Math.max(1, Math.min(4, (start.current.scale * dist) / Math.max(1, start.current.dist || dist)));
+      setScale(s);
+    } else if (pointers.current.size === 1) {
+      const p = pointers.current.get(e.pointerId)!;
+      if (scale > 1.02) {
+        setTx(start.current.tx + (p.x - start.current.cx));
+        setTy(start.current.ty + (p.y - start.current.cy));
+      } else {
+        const dy2 = p.y - start.current.y0;
+        const opacity = Math.max(0.4, 0.9 - Math.abs(dy2) / 600);
+        setBgOpacity(opacity);
+      }
+    }
+  };
+
+  const onPointerUp = (e: ReactPointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size === 0) {
+      if (scale <= 1.02) {
+        if (Math.abs(e.clientY - start.current.y0) > 120) {
+          onClose();
+          return;
+        }
+        setBgOpacity(0.9);
+      }
+      if (scale < 1) setScale(1);
+    }
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.0015;
+      setScale((s) => Math.max(1, Math.min(4, s * (1 + delta))));
+    }
+  };
+
+  const onDoubleClick = () => {
+    const now = performance.now();
+    if (now - lastTapRef.current < 350) {
+      lastTapRef.current = 0;
+      return;
+    }
+    lastTapRef.current = now;
+    setScale((s) => (s > 1.1 ? 1 : 2.2));
+    setTx(0);
+    setTy(0);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      onClick={onClose}
+      onWheel={onWheel}
+      style={{ background: `rgba(0,0,0,${bgOpacity})` }}
+    >
+      <div
+        className="relative w-full h-full max-w-[100vw] max-h-[100vh]"
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={onDoubleClick}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        style={{ touchAction: "none" }}
+      >
+        <img
+          src={src}
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain select-none"
+          style={{ transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})` }}
+          draggable={false}
+          decoding="async"
+        />
+        <button
+          className="absolute top-[calc(env(safe-area-inset-top,0)+8px)] right-[calc(env(safe-area-inset-right,0)+8px)] h-10 w-10 rounded-full bg-white/90 text-black grid place-items-center hover:bg-white"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <div className="absolute left-2 right-2 bottom-[calc(env(safe-area-inset-bottom,0)+8px)] flex items-center justify-between pointer-events-none">
+          <button
+            className="pointer-events-auto h-10 w-10 rounded-full bg-white/80 text-black grid place-items-center hover:bg-white"
+            onClick={onPrev}
+            aria-label="Prev"
+          >
+            ‹
+          </button>
+          <button
+            className="pointer-events-auto h-10 w-10 rounded-full bg-white/80 text-black grid place-items-center hover:bg-white"
+            onClick={onNext}
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
