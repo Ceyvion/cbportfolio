@@ -90,7 +90,7 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
       }
     }
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel as any);
+    return () => el.removeEventListener("wheel", onWheel as unknown as EventListener);
   }, [scale, tx, ty]);
 
   // Pointer-based panning
@@ -108,7 +108,7 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
     setTx(panStart.current.tx + dx);
     setTy(panStart.current.ty + dy);
   }
-  function onPointerUp(e: ReactPointerEvent) {
+  function onPointerUp() {
     panStart.current = null;
     setIsPanning(false);
   }
@@ -133,7 +133,7 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
             key={t.key}
             className="absolute rounded-lg overflow-hidden shadow-sm shadow-black/40 ring-1 ring-white/10 hover:ring-white/20"
             style={{ left: t.x, top: t.y, width: t.w, height: t.h }}
-            onClick={(e) => {
+            onClick={() => {
               // Avoid click when dragging
               if (moved.current) return;
               setOpenTile(t);

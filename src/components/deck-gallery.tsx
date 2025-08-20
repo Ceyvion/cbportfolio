@@ -38,12 +38,12 @@ export function DeckGallery({ photos }: { photos: string[] }) {
     try {
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) lp = true;
       if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) lp = true;
-      const dm = (navigator as any).deviceMemory;
+      const dm = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
       if (typeof dm === 'number' && dm <= 4) lp = true;
     } catch {}
     setLowPower(lp);
     let frames = 0;
-    let start = performance.now();
+    const start = performance.now();
     let raf = requestAnimationFrame(function loop(now: number) {
       frames++;
       if (now - start > 900) {
@@ -276,7 +276,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                     ? "radial-gradient(1200px 800px at 50% -10%, rgba(255,255,255,0.18), rgba(255,255,255,0.02))"
                     : "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
                 }}
-                onClick={(e) => {
+                onClick={() => {
                   if (suppressClickRef.current || dragging.current) return;
                   // If there's meaningful drag distance, treat as drag not click
                   if (Math.abs(xRef.current) > 6) return;

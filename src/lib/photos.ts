@@ -29,7 +29,7 @@ export function listPhotos(): string[] {
     return names
       .filter((n) => exts.has(path.extname(n).toLowerCase()))
       .map((n) => `/photos/${n}`);
-  } catch (_err) {
+  } catch {
     return [];
   }
 }
@@ -119,8 +119,7 @@ export function listPhotoGroups(): PersonGroup[] {
     }
 
     return groups;
-  } catch (_err) {
+  } catch {
     return [];
   }
 }
-
