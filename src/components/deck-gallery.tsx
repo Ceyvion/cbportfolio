@@ -291,7 +291,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                   className={`absolute inset-0 w-full h-full object-cover ${lowPower ? '' : 'mix-blend-luminosity'}`}
                   decoding="async"
                   loading={isCenter ? 'eager' : 'lazy'}
-                  fetchpriority={isCenter ? 'high' : 'low'}
+                  fetchPriority={isCenter ? 'high' : 'low'}
                   draggable={false}
                 />
                 {/* Edge vignettes + glossy highlight via CSS vars */}
