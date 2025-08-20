@@ -149,14 +149,14 @@ export function DeckGallery({ photos }: { photos: string[] }) {
       );
       delay += 420;
     });
-    const cancel = () => {
+    const cancel = (_ev: PointerEvent) => {
       timeouts.forEach((t) => clearTimeout(t));
     };
     const root = rootRef.current;
     root?.addEventListener("pointerdown", cancel, { once: true });
     return () => {
-      cancel();
-      root?.removeEventListener("pointerdown", cancel as any);
+      timeouts.forEach((t) => clearTimeout(t));
+      root?.removeEventListener("pointerdown", cancel);
     };
   }, [mounted, lowPower, lightbox, count]);
 
