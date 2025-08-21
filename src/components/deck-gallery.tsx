@@ -305,7 +305,8 @@ export function DeckGallery({ photos }: { photos: string[] }) {
           {visible.map(({ idx, offset }) => {
             const isCenter = offset === 0;
             // Natural jitter based on index for non-uniform stack
-            const jitter = seededJitter(idx);
+            const photoKey = items[idx];
+            const jitter = jitterForKey(photoKey);
             const baseTranslateX = isCenter
               ? `calc(${offset * d.spacingX}px + var(--drag-x, 0px))`
               : `${offset * d.spacingX + jitter.x}px`;
@@ -321,15 +322,15 @@ export function DeckGallery({ photos }: { photos: string[] }) {
             }`;
             return (
               <button
-                key={idx}
+                key={photoKey}
                 className="absolute inset-0 rounded-2xl overflow-hidden shadow-[0_40px_120px_rgba(0,0,0,0.55)] ring-1 ring-white/15"
                 style={{
                   transform,
                   zIndex: z,
                   filter: `blur(${blur}px)`,
                   transition: isCenter
-                    ? "transform 250ms cubic-bezier(.2,.8,.2,1)"
-                    : "transform 500ms cubic-bezier(.2,.8,.2,1), filter 400ms",
+                    ? "transform 320ms cubic-bezier(.22,.61,.36,1)"
+                    : "transform 700ms cubic-bezier(.22,.61,.36,1), filter 600ms ease",
                   willChange: "transform, filter",
                   contain: "layout paint size style",
                   background: glossy
@@ -434,6 +435,20 @@ function seededJitter(seed: number) {
     y: (frac2 - 0.5) * 6,
     r: (frac3 - 0.5) * 1.6,
   };
+}
+
+// Stable jitter per photo identity for smoother reorders
+function hashToSeed(key: string) {
+  let h = 2166136261 >>> 0; // FNV-like simple hash
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h % 100000; // keep it small-ish
+}
+
+function jitterForKey(key: string) {
+  return seededJitter(hashToSeed(key));
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
