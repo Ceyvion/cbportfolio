@@ -314,7 +314,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
             const rot = offset * 2.5 + (isCenter ? 0 : jitter.r);
             const scale = 1 - Math.min(d.falloff * Math.abs(offset), 0.4);
             const z = 100 - Math.abs(offset);
-            const blur = (lowPower ? 0 : 1) * Math.max(0, Math.abs(offset) - 1) * d.blur;
+            // Avoid GPU-expensive blur filters; rely on transform + depth cues only
 
             // Tilt and gloss for center card
             const transform = `translate3d(${baseTranslateX}, ${baseTranslateY}, 0) rotate(${rot}deg) scale(${scale}) perspective(1200px) ${
@@ -327,11 +327,10 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                 style={{
                   transform,
                   zIndex: z,
-                  filter: `blur(${blur}px)`,
                   transition: isCenter
-                    ? "transform 320ms cubic-bezier(.22,.61,.36,1)"
-                    : "transform 700ms cubic-bezier(.22,.61,.36,1), filter 600ms ease",
-                  willChange: "transform, filter",
+                    ? "transform 300ms cubic-bezier(.22,.61,.36,1)"
+                    : "transform 600ms cubic-bezier(.22,.61,.36,1)",
+                  willChange: "transform",
                   contain: "layout paint size style",
                   background: glossy
                     ? "radial-gradient(1200px 800px at 50% -10%, rgba(255,255,255,0.18), rgba(255,255,255,0.02))"
@@ -345,11 +344,11 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                 }}
                 aria-label="Open image"
               >
-                <div className={`absolute inset-0 bg-white/[0.06] ${lowPower ? 'backdrop-blur-none' : 'backdrop-blur-sm'}`} />
+                <div className={`absolute inset-0 bg-white/[0.06] ${lowPower || !isCenter ? 'backdrop-blur-none' : 'backdrop-blur-sm'}`} />
                 <img
                   src={items[idx]}
                   alt=""
-                  className={`absolute inset-0 w-full h-full object-cover ${lowPower ? '' : 'mix-blend-luminosity'}`}
+                  className={`absolute inset-0 w-full h-full object-cover ${lowPower || !isCenter ? '' : 'mix-blend-luminosity'}`}
                   decoding="async"
                   loading={isCenter ? 'eager' : 'lazy'}
                   fetchPriority={isCenter ? 'high' : 'low'}
@@ -357,8 +356,8 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                 />
                 {/* Edge vignettes + glossy highlight via CSS vars */}
                 <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-white/5" />
-                  {glossy && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/5" />
+                  {glossy && isCenter && (
                     <div
                       className="absolute inset-0 opacity-60"
                       style={{
