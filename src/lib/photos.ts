@@ -112,7 +112,16 @@ export function listPhotoGroups(): PersonGroup[] {
       a.person.localeCompare(b.person)
     );
     for (const g of groups) {
-      g.sets.sort((a, b) => parseInt(a.set, 10) - parseInt(b.set, 10));
+      g.sets.sort((a, b) => {
+        const ai = Number.parseInt(a.set, 10);
+        const bi = Number.parseInt(b.set, 10);
+        const aIsNumber = Number.isFinite(ai);
+        const bIsNumber = Number.isFinite(bi);
+        if (aIsNumber && bIsNumber) return ai - bi;
+        if (aIsNumber) return -1;
+        if (bIsNumber) return 1;
+        return a.set.localeCompare(b.set, undefined, { numeric: true });
+      });
       for (const s of g.sets) {
         s.photos.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
       }

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import NextImage from "next/image";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 export function DeckGallery({ photos }: { photos: string[] }) {
@@ -7,7 +8,14 @@ export function DeckGallery({ photos }: { photos: string[] }) {
   useEffect(() => setMounted(true), []);
   const [lowPower, setLowPower] = useState(false);
   const [items, setItems] = useState<string[]>(() => photos);
+  const [loadedMap, setLoadedMap] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setItems(photos);
+    setLoadedMap({});
+  }, [photos]);
   const [index, setIndex] = useState(0);
+  // Smooth animated position (can be fractional) for buttery transitions
+  const [pos, setPos] = useState(0);
   const dragging = useRef<
     | null
     | {
@@ -30,8 +38,22 @@ export function DeckGallery({ photos }: { photos: string[] }) {
   const lastTRef = useRef<number>(0);
   const movedRef = useRef(false);
   const suppressClickRef = useRef(false);
+  // Spring for animated index position
+  const posAnimRef = useRef<number | null>(null);
+  const posVRef = useRef(0);
+  const posLastTRef = useRef<number>(0);
+  const suppressPosSpringRef = useRef(false);
+  const posRef = useRef(0);
+  useEffect(() => {
+    posRef.current = pos;
+  }, [pos]);
 
   const count = items.length;
+  useEffect(() => {
+    const maxIndex = Math.max(0, photos.length - 1);
+    setIndex((i) => clamp(0, maxIndex, i));
+    setPos((p) => clamp(0, maxIndex, p));
+  }, [photos.length]);
 
   // Auto low-power detection: motion preference, pointer, device memory, and quick FPS probe
   useEffect(() => {
@@ -96,12 +118,13 @@ export function DeckGallery({ photos }: { photos: string[] }) {
 
   const visible = useMemo(() => {
     const around = lowPower ? 4 : 6; // render fewer cards in low-power
+    const center = clamp(0, Math.max(0, count - 1), Math.round(pos));
     const arr: { idx: number; offset: number }[] = [];
-    for (let k = Math.max(0, index - around); k <= Math.min(count - 1, index + around); k++) {
-      arr.push({ idx: k, offset: k - index });
+    for (let k = Math.max(0, center - around); k <= Math.min(count - 1, center + around); k++) {
+      arr.push({ idx: k, offset: k - pos }); // fractional offset for smoother motion
     }
     return arr;
-  }, [index, count, lowPower]);
+  }, [pos, count, lowPower]);
 
   const densities = [
     { spacingX: 70, spacingY: 14, falloff: 0.055, blur: 0.8, width: "min(82vw,760px)" },
@@ -110,10 +133,10 @@ export function DeckGallery({ photos }: { photos: string[] }) {
   ] as const;
   const d = densities[densityIdx];
 
-  // Prefetch next/prev images (simple warm cache)
+  // Prefetch neighbors to warm cache a bit
   useEffect(() => {
     if (!mounted || count === 0) return;
-    const targets = [index - 1, index + 1].filter((i) => i >= 0 && i < count);
+    const targets = [index - 2, index - 1, index + 1, index + 2].filter((i) => i >= 0 && i < count);
     targets.forEach((i) => {
       const img = new Image();
       img.decoding = "async";
@@ -194,6 +217,43 @@ export function DeckGallery({ photos }: { photos: string[] }) {
     };
     animRef.current = requestAnimationFrame(tick);
   };
+
+  // Smoothly spring animated position to current index (unless we just set it directly via slider)
+  useEffect(() => {
+    if (suppressPosSpringRef.current) {
+      suppressPosSpringRef.current = false;
+      return;
+    }
+    if (posAnimRef.current) cancelAnimationFrame(posAnimRef.current);
+    posVRef.current = 0;
+    posLastTRef.current = performance.now();
+    const k = 30; // softer spring for pleasant ease
+    const c = 10;
+    const tick = (now: number) => {
+      const dt = Math.min(1 / 30, Math.max(0.0001, (now - posLastTRef.current) / 1000));
+      posLastTRef.current = now;
+      const x = posRef.current;
+      let v = posVRef.current;
+      const a = -k * (x - index) - c * v;
+      v += a * dt;
+      const nx = x + v * dt;
+      posVRef.current = v;
+      setPos(nx);
+      if (Math.abs(nx - index) < 0.001 && Math.abs(v) < 0.003) {
+        setPos(index);
+        posAnimRef.current = null;
+        return;
+      }
+      posAnimRef.current = requestAnimationFrame(tick);
+    };
+    posAnimRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (posAnimRef.current) cancelAnimationFrame(posAnimRef.current);
+      posAnimRef.current = null;
+    };
+  }, [index]);
+
+  // no fly-out in the original version
 
   const onPointerDown = (e: ReactPointerEvent) => {
     (e.target as Element).setPointerCapture?.(e.pointerId);
@@ -303,17 +363,17 @@ export function DeckGallery({ photos }: { photos: string[] }) {
           style={{ width: d.width }}
         >
           {visible.map(({ idx, offset }) => {
-            const isCenter = offset === 0;
+            const isCenter = Math.abs(offset) < 0.5;
             // Natural jitter based on index for non-uniform stack
             const photoKey = items[idx];
             const jitter = jitterForKey(photoKey);
             const baseTranslateX = isCenter
-              ? `calc(${offset * d.spacingX}px + var(--drag-x, 0px))`
-              : `${offset * d.spacingX + jitter.x}px`;
-            const baseTranslateY = `${Math.abs(offset) * d.spacingY + (isCenter ? 0 : jitter.y)}px`;
+              ? `calc(${(offset * d.spacingX).toFixed(1)}px + var(--drag-x, 0px))`
+              : `${(offset * d.spacingX + jitter.x).toFixed(1)}px`;
+            const baseTranslateY = `${(Math.abs(offset) * d.spacingY + (isCenter ? 0 : jitter.y)).toFixed(1)}px`;
             const rot = offset * 2.5 + (isCenter ? 0 : jitter.r);
             const scale = 1 - Math.min(d.falloff * Math.abs(offset), 0.4);
-            const z = 100 - Math.abs(offset);
+            const z = 100 - Math.abs(Math.round(offset));
             // Avoid GPU-expensive blur filters; rely on transform + depth cues only
 
             // Tilt and gloss for center card
@@ -345,14 +405,25 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                 aria-label="Open image"
               >
                 <div className={`absolute inset-0 bg-white/[0.06] ${lowPower || !isCenter ? 'backdrop-blur-none' : 'backdrop-blur-sm'}`} />
-                <img
+                <NextImage
                   src={items[idx]}
                   alt=""
-                  className={`absolute inset-0 w-full h-full object-cover ${lowPower || !isCenter ? '' : 'mix-blend-luminosity'}`}
-                  decoding="async"
-                  loading={isCenter ? 'eager' : 'lazy'}
-                  fetchPriority={isCenter ? 'high' : 'low'}
+                  fill
+                  sizes="(max-width: 640px) 90vw, (max-width: 1024px) 70vw, 900px"
+                  className={`${lowPower || !isCenter ? '' : 'mix-blend-luminosity'} ${loadedMap[photoKey] ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200 object-cover`}
                   draggable={false}
+                  priority={isCenter}
+                  loading={isCenter ? undefined : "lazy"}
+                  onLoadingComplete={() => setLoadedMap((m) => (m[photoKey] ? m : { ...m, [photoKey]: true }))}
+                />
+                {/* Lightweight skeleton overlay until image is loaded */}
+                <div
+                  aria-hidden
+                  className={`absolute inset-0 pointer-events-none ${loadedMap[photoKey] ? 'opacity-0' : 'opacity-100'} ${lowPower ? '' : 'animate-pulse'} transition-opacity duration-200`}
+                  style={{
+                    background:
+                      'linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04))',
+                  }}
                 />
                 {/* Edge vignettes + glossy highlight via CSS vars */}
                 <div className="absolute inset-0 pointer-events-none">
@@ -385,31 +456,48 @@ export function DeckGallery({ photos }: { photos: string[] }) {
 
       {/* Bottom scrubber (safe-area aware) */}
       {mounted && count > 1 && (
-        <div className="fixed left-0 right-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0)+12px)] pt-3 bg-gradient-to-t from-black/50 via-black/30 to-transparent">
+        <div className="fixed left-0 right-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0)+14px)] pt-4 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
           <div className="mx-auto max-w-xl flex items-center gap-3 text-xs">
             <button
-              className="px-3 py-2 rounded-full bg-white/10 hover:bg-white/15"
+              className="h-9 px-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 backdrop-blur-sm"
               onClick={() => setAutoplay((v) => !v)}
               aria-label="Toggle autoplay"
             >
-              {autoplay ? "Autoplay: On" : "Autoplay: Off"}
+              {autoplay ? "▶︎ Auto" : "▮▮ Auto"}
             </button>
             <button
-              className="px-3 py-2 rounded-full bg-white/10 hover:bg-white/15"
+              className="h-9 px-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 backdrop-blur-sm"
               onClick={() => setItems((prev) => shuffleArray(prev))}
               aria-label="Shuffle now"
             >
               Shuffle
             </button>
-            <input
-              aria-label="Scrub"
-              type="range"
-              min={0}
-              max={count - 1}
-              value={index}
-              onChange={(e) => setIndex(Number(e.target.value))}
-              className="flex-1 accent-white/80"
-            />
+            <div className="flex-1 deck-scrubber flex items-center gap-2 select-none">
+              {(() => {
+                const scrubberStyle: CSSProperties & { ['--progress']?: string } = {
+                  ['--progress']: `${count > 1 ? (pos / (count - 1)) * 100 : 0}%`,
+                };
+                return (
+                  <input
+                aria-label="Scrub"
+                type="range"
+                min={0}
+                max={Math.max(0, count - 1)}
+                value={index}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  // Set position immediately for direct feedback and set index; suppress spring for this change
+                  suppressPosSpringRef.current = true;
+                  setPos(v);
+                  setIndex(v);
+                }}
+                className="flex-1"
+                style={scrubberStyle}
+              />
+                );
+              })()}
+              <div className="w-16 text-right text-[11px] text-white/80 tabular-nums">{Math.round(pos) + 1}/{count}</div>
+            </div>
           </div>
         </div>
       )}
@@ -574,13 +662,15 @@ function Lightbox({
         onPointerCancel={onPointerUp}
         style={{ touchAction: "none" }}
       >
-        <img
+        <NextImage
           src={src}
           alt=""
-          className="absolute inset-0 w-full h-full object-contain select-none"
+          fill
+          sizes="100vw"
+          className="object-contain select-none"
           style={{ transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})` }}
           draggable={false}
-          decoding="async"
+          priority
         />
         <button
           className="absolute top-[calc(env(safe-area-inset-top,0)+8px)] right-[calc(env(safe-area-inset-right,0)+8px)] h-10 w-10 rounded-full bg-white/90 text-black grid place-items-center hover:bg-white"

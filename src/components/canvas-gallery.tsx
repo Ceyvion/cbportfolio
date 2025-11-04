@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { PersonGroup } from "@/lib/photos";
@@ -140,12 +141,17 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
               setOpenTile(t);
             }}
           >
-            <img
-              src={t.src}
-              alt=""
-              className="w-full h-full object-cover select-none pointer-events-none"
-              draggable={false}
-            />
+            <div className="relative h-full w-full">
+              <Image
+                src={t.src}
+                alt=""
+                fill
+                sizes="240px"
+                className="object-cover select-none pointer-events-none"
+                draggable={false}
+                loading="lazy"
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -154,7 +160,17 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
       {openTile && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setOpenTile(null)}>
           <div className="relative w-full h-full max-w-[92vw] max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
-            <img src={openTile.src} alt="" className="w-full h-full object-contain" />
+            <div className="relative h-full w-full">
+              <Image
+                src={openTile.src}
+                alt=""
+                fill
+                sizes="100vw"
+                className="object-contain"
+                draggable={false}
+                priority
+              />
+            </div>
             <button
               className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/90 text-black grid place-items-center hover:bg-white"
               onClick={() => setOpenTile(null)}
