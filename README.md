@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CB Portfolio (Next.js)
 
-## Getting Started
+Interactive, physics-driven deck gallery for local photos. Built with Next.js 15 / React 19 RC and Tailwind.
 
-First, run the development server:
+## Quick start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open http://localhost:3000/canvas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Adding photos
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Drop `.jpg`, `.png`, `.webp`, or `.avif` files into `public/photos`.
+- Filenames drive grouping: `first-last_1.jpg` → person: “First Last”, set `1`. A trailing number becomes the set id; everything before it becomes the person name.
+- Lists are refreshed on page load; no additional metadata files needed.
 
-## Learn More
+## Using the deck
 
-To learn more about Next.js, take a look at the following resources:
+- Drag or fling cards horizontally to move through the stack; physics are clamped so cards settle cleanly.
+- Keyboard: `←/→` change photos, `g` toggles gloss, `d` cycles density, `l` flips low-power mode, `a` toggles autoplay, `s` shuffles.
+- Lightbox: click/tap a card, pinch/ctrl-scroll or double-click to zoom, swipe/arrow keys to move, `Esc` to close.
+- Bottom scrubber lets you jump directly; safe-area insets are respected on mobile.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Stability notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Neighbor images pre-decode and cache their load status, so shuffles and rapid navigation avoid flashes.
+- Erroring images show a clear fallback overlay instead of sticking on a skeleton.
+- Drag distances/velocities are clamped and springs are canceled on tab-hide to prevent runaway motion.
 
-## Deploy on Vercel
+## Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `npm run dev` – start the dev server
+- `npm run lint` – lint the project
+- `npm run build` / `npm run start` – production build and serve
+- `npm run compress:photos` – optimize everything in `public/photos` into `public/photos-optimized` (defaults: WebP, max dimension 1800px, quality 82). Override with env vars:
+  - `FORMAT=avif|webp|jpeg|png|jpg` and optional `SECONDARY_FORMAT=webp` to emit two formats.
+  - `MAX_DIM=1600` (or `MAX_WIDTH`) to clamp width/height.
+  - `QUALITY=85`, `KEEP_METADATA=1`, `FORCE=1` to rewrite even if output is fresh, `DRY_RUN=1` to see the plan only.
+  - `SOURCE_DIR=public/photos-raw`, `OUTPUT_DIR=public/photos-optimized`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Customization
+
+- Update site metadata in `src/lib/site.ts`.
+- Tailwind theme tweaks live in `tailwind.config.ts`.

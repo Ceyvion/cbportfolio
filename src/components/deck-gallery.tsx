@@ -1,6 +1,6 @@
 "use client";
 import NextImage from "next/image";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 export function DeckGallery({ photos }: { photos: string[] }) {
@@ -8,10 +8,16 @@ export function DeckGallery({ photos }: { photos: string[] }) {
   useEffect(() => setMounted(true), []);
   const [lowPower, setLowPower] = useState(false);
   const [items, setItems] = useState<string[]>(() => photos);
-  const [loadedMap, setLoadedMap] = useState<Record<string, boolean>>({});
+  const [imageStatus, setImageStatus] = useState<Record<string, "idle" | "loaded" | "error">>({});
   useEffect(() => {
     setItems(photos);
-    setLoadedMap({});
+    setImageStatus((prev) => {
+      const next: Record<string, "idle" | "loaded" | "error"> = {};
+      photos.forEach((src) => {
+        next[src] = prev[src] ?? "idle";
+      });
+      return next;
+    });
   }, [photos]);
   const [index, setIndex] = useState(0);
   // Smooth animated position (can be fractional) for buttery transitions
@@ -133,16 +139,46 @@ export function DeckGallery({ photos }: { photos: string[] }) {
   ] as const;
   const d = densities[densityIdx];
 
-  // Prefetch neighbors to warm cache a bit
+  const markLoaded = useCallback((src: string) => {
+    setImageStatus((m) => (m[src] === "loaded" ? m : { ...m, [src]: "loaded" }));
+  }, []);
+  const markErrored = useCallback((src: string) => {
+    setImageStatus((m) => (m[src] === "error" ? m : { ...m, [src]: "error" }));
+  }, []);
+
+  // Prefetch neighbors to warm cache a bit (and record decode status)
   useEffect(() => {
     if (!mounted || count === 0) return;
+    let cancelled = false;
     const targets = [index - 2, index - 1, index + 1, index + 2].filter((i) => i >= 0 && i < count);
     targets.forEach((i) => {
       const img = new Image();
       img.decoding = "async";
       img.src = items[i];
+      const src = items[i];
+      img.onload = () => {
+        if (cancelled) return;
+        markLoaded(src);
+      };
+      img.onerror = () => {
+        if (cancelled) return;
+        markErrored(src);
+      };
+      if (typeof img.decode === "function") {
+        img
+          .decode()
+          .then(() => {
+            if (!cancelled) markLoaded(src);
+          })
+          .catch(() => {
+            if (!cancelled) markErrored(src);
+          });
+      }
     });
-  }, [index, count, items, mounted]);
+    return () => {
+      cancelled = true;
+    };
+  }, [index, count, items, mounted, markErrored, markLoaded]);
 
   // Autoplay
   const [autoplay, setAutoplay] = useState(false);
@@ -197,6 +233,8 @@ export function DeckGallery({ photos }: { photos: string[] }) {
     lastTRef.current = performance.now();
     const k = 90; // spring stiffness
     const c = 18; // damping
+    const maxDurationMs = 900;
+    const startedAt = lastTRef.current;
     const tick = (now: number) => {
       const dt = Math.min(1 / 30, Math.max(0.0001, (now - lastTRef.current) / 1000));
       lastTRef.current = now;
@@ -208,6 +246,11 @@ export function DeckGallery({ photos }: { photos: string[] }) {
       xRef.current = nx;
       vRef.current = v;
       if (deckRef.current) deckRef.current.style.setProperty("--drag-x", `${nx.toFixed(1)}px`);
+      if (now - startedAt > maxDurationMs) {
+        if (deckRef.current) deckRef.current.style.setProperty("--drag-x", `${target}px`);
+        animRef.current = null;
+        return;
+      }
       if (Math.abs(nx - target) < 0.5 && Math.abs(v) < 5) {
         if (deckRef.current) deckRef.current.style.setProperty("--drag-x", `${target}px`);
         animRef.current = null;
@@ -283,7 +326,9 @@ export function DeckGallery({ photos }: { photos: string[] }) {
     }
     if (!dragging.current) return;
     const now = performance.now();
-    const dx = e.clientX - dragging.current.startX;
+    const rect = deck?.getBoundingClientRect();
+    const dragClamp = rect ? rect.width * 0.55 : 380;
+    const dx = clamp(-dragClamp, dragClamp, e.clientX - dragging.current.startX);
     if (!movedRef.current && Math.abs(dx) > 6) movedRef.current = true;
     dragging.current.prevX = dragging.current.lastX;
     dragging.current.prevT = dragging.current.lastT;
@@ -296,8 +341,12 @@ export function DeckGallery({ photos }: { photos: string[] }) {
     if (!dragging.current) return;
     const { startX, lastX, lastT, prevX, prevT } = dragging.current;
     const dx = lastX - startX;
-    const threshold = 120;
-    const v = (lastX - prevX) / Math.max(1, lastT - prevT); // px per ms
+    const deck = deckRef.current;
+    const rect = deck?.getBoundingClientRect();
+    const baseThreshold = rect ? rect.width * 0.18 : 120;
+    const threshold = clamp(70, 180, baseThreshold);
+    const rawV = (lastX - prevX) / Math.max(1, lastT - prevT); // px per ms
+    const v = clamp(-2.5, 2.5, rawV);
     dragging.current = null;
     if (rootRef.current) rootRef.current.style.cursor = "grab";
     if (dx > threshold || v > 0.8) setIndex((i) => Math.max(0, i - 1));
@@ -318,6 +367,33 @@ export function DeckGallery({ photos }: { photos: string[] }) {
       rootRef.current.style.cursor = "grab";
     }
   };
+
+  // Stop animations when the tab is hidden and on unmount to avoid runaway springs
+  useEffect(() => {
+    function resetSprings() {
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+      if (posAnimRef.current) {
+        cancelAnimationFrame(posAnimRef.current);
+        posAnimRef.current = null;
+      }
+      xRef.current = 0;
+      vRef.current = 0;
+      if (deckRef.current) deckRef.current.style.setProperty("--drag-x", `0px`);
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        resetSprings();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      resetSprings();
+    };
+  }, []);
 
   if (!mounted || count === 0) return <div className="fixed inset-0 bg-black" />;
 
@@ -410,21 +486,27 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                   alt=""
                   fill
                   sizes="(max-width: 640px) 90vw, (max-width: 1024px) 70vw, 900px"
-                  className={`${lowPower || !isCenter ? '' : 'mix-blend-luminosity'} ${loadedMap[photoKey] ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200 object-cover`}
+                  className={`${lowPower || !isCenter ? '' : 'mix-blend-luminosity'} ${imageStatus[photoKey] === 'loaded' ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200 object-cover`}
                   draggable={false}
                   priority={isCenter}
                   loading={isCenter ? undefined : "lazy"}
-                  onLoadingComplete={() => setLoadedMap((m) => (m[photoKey] ? m : { ...m, [photoKey]: true }))}
+                  onLoadingComplete={() => markLoaded(photoKey)}
+                  onError={() => markErrored(photoKey)}
                 />
                 {/* Lightweight skeleton overlay until image is loaded */}
                 <div
                   aria-hidden
-                  className={`absolute inset-0 pointer-events-none ${loadedMap[photoKey] ? 'opacity-0' : 'opacity-100'} ${lowPower ? '' : 'animate-pulse'} transition-opacity duration-200`}
+                  className={`absolute inset-0 pointer-events-none ${imageStatus[photoKey] === 'loaded' || imageStatus[photoKey] === 'error' ? 'opacity-0' : 'opacity-100'} ${lowPower ? '' : 'animate-pulse'} transition-opacity duration-200`}
                   style={{
                     background:
                       'linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04))',
                   }}
                 />
+                {imageStatus[photoKey] === "error" && (
+                  <div className="absolute inset-0 grid place-items-center bg-black/70 text-white/80 text-xs font-medium tracking-wide">
+                    Image unavailable
+                  </div>
+                )}
                 {/* Edge vignettes + glossy highlight via CSS vars */}
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/5" />
