@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { siteConfig } from "@/lib/site";
 import { useEffect, useRef, useState } from "react";
 
 export type Slide = {
@@ -14,6 +15,16 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const [introReady, setIntroReady] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+
+  useEffect(() => {
+    if (!aboutOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAboutOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [aboutOpen]);
 
   useEffect(() => {
     setIntroReady(false);
@@ -59,9 +70,66 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     };
   }, [active]);
 
+  const topChrome = (
+    <>
+      <div className="fixed top-5 left-1/2 z-30 flex w-[min(1200px,calc(100%-24px))] -translate-x-1/2 items-center justify-between gap-3 px-3 sm:px-6">
+        <div className="text-[11px] font-medium uppercase tracking-[0.24em] text-white/70">
+          Still wing
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href={siteConfig.instagram || "https://instagram.com/"}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          >
+            <span className="h-2 w-2 rounded-full bg-[conic-gradient(from_120deg_at_50%_50%,#f9ce34,#ee2a7b,#6228d7,#f9ce34)]" aria-hidden />
+            Instagram
+          </a>
+          <button
+            type="button"
+            onClick={() => setAboutOpen((v) => !v)}
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.99]"
+            aria-pressed={aboutOpen}
+          >
+            About
+            <span className="text-base leading-none">{aboutOpen ? "–" : "+"}</span>
+          </button>
+        </div>
+        <div className="text-[11px] font-medium uppercase tracking-[0.24em] text-white/70">
+          {slides.length} frames
+        </div>
+      </div>
+
+      {aboutOpen && (
+        <div className="fixed top-[78px] right-4 z-40 w-[min(360px,calc(100%-28px))] rounded-3xl border border-white/20 bg-black/70 px-5 py-4 text-white shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:right-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <p className="text-sm leading-6 text-white/90">
+                Portrait sets captured by CB, meant to be walked through fullscreen. Each reload shuffles the order so you get a fresh glide every time.
+              </p>
+              <p className="text-xs text-white/60">
+                Built with Next.js + a physics-driven slider, tuned for smooth motion and full-bleed frames.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAboutOpen(false)}
+              className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              aria-label="Close about"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   if (slides.length === 0) {
     return (
       <section className="relative flex min-h-screen items-center justify-center px-6 text-center text-sm text-white/70 bg-[#0b0d12]">
+        {topChrome}
         <div className="rounded-[38px] border border-white/10 bg-white/5 px-6 py-10">
           No images yet. Add files to <code className="rounded bg-white/10 px-1">public/photos</code> and refresh to light up this view.
         </div>
@@ -71,12 +139,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
 
   return (
     <section className="relative h-screen overflow-hidden bg-[#0b0d12] text-white">
-      <div className="pointer-events-none fixed top-5 left-6 z-30 text-[11px] font-medium uppercase tracking-[0.24em] text-white/60">
-        Still wing
-      </div>
-      <div className="pointer-events-none fixed top-5 right-6 z-30 text-[11px] font-medium uppercase tracking-[0.24em] text-white/60">
-        {slides.length} frames
-      </div>
+      {topChrome}
 
       <div
         ref={containerRef}

@@ -17,7 +17,7 @@ export const siteConfig = {
   ],
   author: "CB",
   twitter: "@cb",
+  instagram: "https://instagram.com/",
 };
 
 export type SiteConfig = typeof siteConfig;
-
