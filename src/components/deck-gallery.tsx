@@ -1,5 +1,6 @@
 "use client";
 import NextImage from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
@@ -395,35 +396,53 @@ export function DeckGallery({ photos }: { photos: string[] }) {
     };
   }, []);
 
-  if (!mounted || count === 0) return <div className="fixed inset-0 bg-black" />;
+  if (!mounted || count === 0) return <div className="fixed inset-0 bg-[#f6f1e7]" />;
 
   return (
-    <div ref={rootRef} className="fixed inset-0 bg-black text-white select-none" style={{ touchAction: "pan-y", cursor: "grab" }}>
+    <div
+      ref={rootRef}
+      className="fixed inset-0 bg-[#f6f1e7] text-slate-900 select-none"
+      style={{ touchAction: "pan-y", cursor: "grab" }}
+    >
       {/* Ambient reactive background */}
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(1000px 700px at var(--gx,50%) var(--gy,40%), rgba(255,255,255,0.06), rgba(255,255,255,0.0) 60%),\
-             radial-gradient(1400px 900px at 40% 60%, rgba(14,165,233,0.06), rgba(14,165,233,0.0) 60%),\
-             radial-gradient(1400px 900px at 70% 30%, rgba(147,51,234,0.05), rgba(147,51,234,0.0) 60%)",
-          opacity: lowPower ? 0.6 : 0.9,
-          mixBlendMode: "screen",
+            "radial-gradient(1200px 1000px at var(--gx,50%) var(--gy,38%), rgba(255,255,255,0.85), rgba(255,255,255,0.05) 62%),\
+             radial-gradient(1300px 900px at 20% 60%, rgba(71,149,132,0.18), rgba(71,149,132,0.02) 65%),\
+             radial-gradient(1200px 900px at 80% 25%, rgba(120,126,241,0.12), rgba(120,126,241,0.02) 64%)",
+          opacity: lowPower ? 0.7 : 0.9,
         }}
       />
       {/* Subtle noise overlay (skip in low-power) */}
       {!lowPower && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none opacity-[0.035]"
+          className="absolute inset-0 pointer-events-none opacity-[0.04]"
           style={{
             backgroundImage:
-              "url('data:image/svg+xml;utf8,<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"160\\\" height=\\\"160\\\" viewBox=\\\"0 0 160 160\\\"><filter id=\\\"n\\\"><feTurbulence type=\\\"fractalNoise\\\" baseFrequency=\\\"0.9\\\" numOctaves=\\\"2\\\" stitchTiles=\\\"stitch\\\"/></filter><rect width=\\\"100%\\\" height=\\\"100%\\\" filter=\\\"url(%23n)\\\" opacity=\\\"0.5\\\"/></svg>')",
+              "url('data:image/svg+xml;utf8,<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" width=\\\"160\\\" height=\\\"160\\\" viewBox=\\\"0 0 160 160\\\"><filter id=\\\"n\\\"><feTurbulence type=\\\"fractalNoise\\\" baseFrequency=\\\"0.9\\\" numOctaves=\\\"2\\\" stitchTiles=\\\"stitch\\\"/></filter><rect width=\\\"100%\\\" height=\\\"100%\\\" filter=\\\"url(%23n)\\\" opacity=\\\"0.4\\\"/></svg>')",
             backgroundSize: "auto",
           }}
         />
       )}
+
+      <div className="pointer-events-none absolute inset-0 z-30 px-5 pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="pointer-events-auto rounded-full border border-slate-900/10 bg-white/85 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-[0_10px_30px_rgba(15,23,42,0.12)]">
+            Flow deck
+          </div>
+          <Link
+            href="/"
+            className="pointer-events-auto rounded-full border border-slate-900/10 bg-slate-900 text-white px-4 py-2 text-sm font-medium shadow-[0_12px_30px_rgba(15,23,42,0.18)] hover:translate-y-[-1px] transition-transform"
+          >
+            Back to calm grid
+          </Link>
+        </div>
+      </div>
+
       <div
         className="absolute inset-0"
         onPointerDown={onPointerDown}
@@ -459,7 +478,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
             return (
               <button
                 key={photoKey}
-                className="absolute inset-0 rounded-2xl overflow-hidden shadow-[0_40px_120px_rgba(0,0,0,0.55)] ring-1 ring-white/15"
+                className="absolute inset-0 rounded-2xl overflow-hidden shadow-[0_30px_120px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/10"
                 style={{
                   transform,
                   zIndex: z,
@@ -509,7 +528,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                 )}
                 {/* Edge vignettes + glossy highlight via CSS vars */}
                 <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/5" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/15 via-transparent to-white/50" />
                   {glossy && isCenter && (
                     <div
                       className="absolute inset-0 opacity-60"
@@ -538,17 +557,17 @@ export function DeckGallery({ photos }: { photos: string[] }) {
 
       {/* Bottom scrubber (safe-area aware) */}
       {mounted && count > 1 && (
-        <div className="fixed left-0 right-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0)+14px)] pt-4 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
-          <div className="mx-auto max-w-xl flex items-center gap-3 text-xs">
+        <div className="fixed left-0 right-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0)+14px)] pt-4 bg-gradient-to-t from-white/90 via-white/70 to-transparent">
+          <div className="mx-auto max-w-xl flex items-center gap-3 text-xs text-slate-800">
             <button
-              className="h-9 px-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 backdrop-blur-sm"
+              className="h-9 px-3 rounded-full bg-white/90 text-slate-900 border border-slate-200 shadow-sm hover:bg-white"
               onClick={() => setAutoplay((v) => !v)}
               aria-label="Toggle autoplay"
             >
               {autoplay ? "▶︎ Auto" : "▮▮ Auto"}
             </button>
             <button
-              className="h-9 px-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 backdrop-blur-sm"
+              className="h-9 px-3 rounded-full bg-white/90 text-slate-900 border border-slate-200 shadow-sm hover:bg-white"
               onClick={() => setItems((prev) => shuffleArray(prev))}
               aria-label="Shuffle now"
             >
@@ -578,7 +597,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
               />
                 );
               })()}
-              <div className="w-16 text-right text-[11px] text-white/80 tabular-nums">{Math.round(pos) + 1}/{count}</div>
+              <div className="w-16 text-right text-[11px] text-slate-800/80 tabular-nums">{Math.round(pos) + 1}/{count}</div>
             </div>
           </div>
         </div>

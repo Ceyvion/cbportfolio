@@ -3,29 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #f6f1e7;
+  --foreground: #0f172a;
+  --muted: #5f6b7a;
+  --border: #e5e7eb;
+  --card: #ffffff;
+  --accent: #479584;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* Ensure anchored sections account for sticky header */
-[id] {
-  scroll-margin-top: 80px;
+  font-family: var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.01em;
+  line-height: 1.6;
+  scroll-behavior: smooth;
 }
 
 ::selection {
-  background: #a3a3a3;
-  color: #000;
+  background: #e2f0ec;
+  color: #0f172a;
 }

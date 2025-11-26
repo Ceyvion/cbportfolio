@@ -7,12 +7,10 @@
     "dev:turbopack": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "compress:photos": "node scripts/compress-photos.mjs"
+    "lint": "next lint"
   },
   "dependencies": {
     "next": "15.0.3",
-    "sharp": "^0.33.4",
     "react": "19.0.0-rc-66855b96-20241106",
     "react-dom": "19.0.0-rc-66855b96-20241106"
   },

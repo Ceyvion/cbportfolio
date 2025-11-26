@@ -35,11 +35,7 @@ Then open http://localhost:3000/canvas
 - `npm run dev` – start the dev server
 - `npm run lint` – lint the project
 - `npm run build` / `npm run start` – production build and serve
-- `npm run compress:photos` – optimize everything in `public/photos` into `public/photos-optimized` (defaults: WebP, max dimension 1800px, quality 82). Override with env vars:
-  - `FORMAT=avif|webp|jpeg|png|jpg` and optional `SECONDARY_FORMAT=webp` to emit two formats.
-  - `MAX_DIM=1600` (or `MAX_WIDTH`) to clamp width/height.
-  - `QUALITY=85`, `KEEP_METADATA=1`, `FORCE=1` to rewrite even if output is fresh, `DRY_RUN=1` to see the plan only.
-  - `SOURCE_DIR=public/photos-raw`, `OUTPUT_DIR=public/photos-optimized`.
+- Photos are served directly from `public/photos`; there is no build-time optimization step.
 
 ## Customization
 
