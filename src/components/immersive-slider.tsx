@@ -128,7 +128,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
 
   if (slides.length === 0) {
     return (
-      <section className="relative flex min-h-[100dvh] items-center justify-center px-6 text-center text-sm text-white/70 bg-[#0b0d12]">
+      <section className="relative flex h-screen min-h-[100dvh] items-center justify-center px-6 text-center text-sm text-white/70 bg-[#0b0d12]">
         {topChrome}
         <div className="rounded-[38px] border border-white/10 bg-white/5 px-6 py-10">
           No images yet. Add files to <code className="rounded bg-white/10 px-1">public/photos</code> and refresh to light up this view.
@@ -138,12 +138,12 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   }
 
   return (
-    <section className="relative min-h-[100dvh] overflow-hidden bg-[#0b0d12] text-white">
+    <section className="relative h-screen min-h-[100dvh] overflow-hidden bg-[#0b0d12] text-white">
       {topChrome}
 
       <div
         ref={containerRef}
-        className="relative h-full min-h-[100dvh] overflow-y-auto snap-y snap-mandatory overscroll-contain"
+        className="relative h-full overflow-y-auto snap-y snap-mandatory overscroll-contain"
         style={{ scrollBehavior: "smooth" }}
       >
         <div className="absolute inset-0 bg-[radial-gradient(900px_900px_at_30%_20%,rgba(255,255,255,0.08),transparent_60%),radial-gradient(1200px_1100px_at_70%_-10%,rgba(71,149,132,0.22),transparent_60%),radial-gradient(1000px_1000px_at_40%_90%,rgba(120,126,241,0.18),transparent_60%)]" />
@@ -166,7 +166,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                 ref={(el) => {
                   itemRefs.current[idx] = el;
                 }}
-                className="relative min-h-[100dvh] snap-start"
+                className="relative h-screen min-h-[100dvh] snap-start"
                 style={{
                   transform: `translateY(${translateY}px) scale(${scale})`,
                   opacity: slideOpacity,
