@@ -151,12 +151,13 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
         <div className="relative flex flex-col">
           {slides.map((slide, idx) => {
             const distance = Math.abs(idx - smoothActive);
-            const scale = 1 - Math.min(0.06 * distance, 0.14);
-            const baseOpacity = 1 - Math.min(0.16 * distance, 0.4);
+            const eased = distance < 0.001 ? 0 : distance;
+            const scale = eased === 0 ? 1 : 1 - Math.min(0.04 * eased, 0.1);
+            const baseOpacity = 1 - Math.min(0.12 * eased, 0.35);
             const slideOpacity = introReady ? baseOpacity : 0;
-            const translateY = distance * 8 + (introReady ? 0 : 14);
-            const textOpacity = (introReady ? 1 : 0) * (1 - Math.min(0.35 * distance, 0.7));
-            const textTranslate = 12 + distance * 6 + (introReady ? 0 : 10);
+            const translateY = (introReady ? 0 : 14) + eased * 4;
+            const textOpacity = (introReady ? 1 : 0) * (1 - Math.min(0.3 * eased, 0.6));
+            const textTranslate = 10 + eased * 4 + (introReady ? 0 : 10);
             const transitionDelay = introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
 
             return (
