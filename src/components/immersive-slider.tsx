@@ -194,40 +194,56 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                   transition: "transform 900ms cubic-bezier(.22,.61,.36,1), opacity 900ms ease",
                   transitionDelay,
                   willChange: "transform, opacity",
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
                 }}
               >
-                {slide.mediaType === "video" ? (
-                  <video
-                    src={slide.src}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    style={{
-                      transform: `scale(${imageScale})`,
-                      transition: imageTransition,
-                      transformOrigin: "50% 50%",
-                      willChange: "transform",
-                    }}
-                    playsInline
-                    muted
-                    loop
-                    autoPlay
-                    preload="metadata"
-                  />
-                ) : (
-                  <Image
-                    src={slide.src}
-                    alt=""
-                    fill
-                    sizes="100vw"
-                    className="object-cover"
-                    style={{
-                      transform: `scale(${imageScale})`,
-                      transition: imageTransition,
-                      transformOrigin: "50% 50%",
-                      willChange: "transform",
-                    }}
-                    priority={idx < 2}
-                  />
-                )}
+                <div
+                  className="absolute inset-0 overflow-hidden"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    transform: "translateZ(0)",
+                    WebkitTransform: "translateZ(0)",
+                  }}
+                >
+                  {slide.mediaType === "video" ? (
+                    <video
+                      src={slide.src}
+                      className="h-full w-full object-cover"
+                      style={{
+                        transform: `scale(${imageScale})`,
+                        transition: imageTransition,
+                        transformOrigin: "50% 50%",
+                        willChange: "transform",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                      }}
+                      playsInline
+                      muted
+                      loop
+                      autoPlay
+                      preload="metadata"
+                    />
+                  ) : (
+                    <Image
+                      src={slide.src}
+                      alt=""
+                      fill
+                      sizes="100vw"
+                      className="object-cover"
+                      style={{
+                        transform: `scale(${imageScale})`,
+                        transition: imageTransition,
+                        transformOrigin: "50% 50%",
+                        willChange: "transform",
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                      }}
+                      priority={idx < 2}
+                    />
+                  )}
+                </div>
 
                 <div className="absolute inset-0 z-20 flex flex-col justify-end gap-3 px-6 pb-14 sm:px-10 sm:pb-16">
                   <h2
