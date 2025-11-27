@@ -7,6 +7,7 @@ export type Slide = {
   src: string;
   title: string;
   subtitle: string;
+  mediaType?: "image" | "video";
 };
 
 export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
@@ -195,20 +196,38 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                   willChange: "transform, opacity",
                 }}
               >
-                <Image
-                  src={slide.src}
-                  alt=""
-                  fill
-                  sizes="100vw"
-                  className="object-cover"
-                  style={{
-                    transform: `scale(${imageScale})`,
-                    transition: imageTransition,
-                    transformOrigin: "50% 50%",
-                    willChange: "transform",
-                  }}
-                  priority={idx < 2}
-                />
+                {slide.mediaType === "video" ? (
+                  <video
+                    src={slide.src}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    style={{
+                      transform: `scale(${imageScale})`,
+                      transition: imageTransition,
+                      transformOrigin: "50% 50%",
+                      willChange: "transform",
+                    }}
+                    playsInline
+                    muted
+                    loop
+                    autoPlay
+                    preload="metadata"
+                  />
+                ) : (
+                  <Image
+                    src={slide.src}
+                    alt=""
+                    fill
+                    sizes="100vw"
+                    className="object-cover"
+                    style={{
+                      transform: `scale(${imageScale})`,
+                      transition: imageTransition,
+                      transformOrigin: "50% 50%",
+                      willChange: "transform",
+                    }}
+                    priority={idx < 2}
+                  />
+                )}
 
                 <div className="absolute inset-0 z-20 flex flex-col justify-end gap-3 px-6 pb-14 sm:px-10 sm:pb-16">
                   <h2

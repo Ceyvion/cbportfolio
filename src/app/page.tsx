@@ -1,5 +1,5 @@
 import { listPhotoGroups } from "@/lib/photos";
-import { ImmersiveSlider } from "@/components/immersive-slider";
+import { ImmersiveSlider, type Slide } from "@/components/immersive-slider";
 
 function shuffle<T>(items: T[]): T[] {
   const arr = [...items];
@@ -12,17 +12,25 @@ function shuffle<T>(items: T[]): T[] {
 
 export default async function Page() {
   const groups = await listPhotoGroups();
-  const slides = shuffle(
+  const photoSlides: Slide[] = shuffle(
     groups.flatMap((g) =>
       g.sets.flatMap((s) =>
         s.photos.map((p, idx) => ({
           src: p.src,
           title: g.person,
           subtitle: `Set ${s.set} · Frame ${idx + 1} of ${s.photos.length}`,
+          mediaType: "image" as const,
         }))
       )
     )
   );
+  const videoSlide: Slide = {
+    src: "/a%20good%20friend.MOV",
+    title: "A Good Friend",
+    subtitle: "Short film · Video",
+    mediaType: "video",
+  };
+  const slides: Slide[] = [videoSlide, ...photoSlides];
 
   return (
     <ImmersiveSlider slides={slides} />
