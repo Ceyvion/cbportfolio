@@ -147,6 +147,10 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   return (
     <section className="relative h-screen min-h-[100dvh] overflow-hidden bg-[#0b0d12] text-white">
       {topChrome}
+      <div
+        className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black/70 via-black/30 to-transparent"
+        aria-hidden
+      />
 
       <div
         ref={containerRef}
@@ -204,10 +208,9 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                   }}
                   priority={idx < 2}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
 
-                <div className="absolute inset-0 flex flex-col justify-end gap-3 px-6 pb-14 sm:px-10 sm:pb-16">
-                <h2
+                <div className="absolute inset-0 z-20 flex flex-col justify-end gap-3 px-6 pb-14 sm:px-10 sm:pb-16">
+                  <h2
                     className="text-4xl sm:text-5xl lg:text-6xl font-light leading-tight tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
                     style={{
                       opacity: textOpacity,
