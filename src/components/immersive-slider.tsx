@@ -16,6 +16,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const [introReady, setIntroReady] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [lingerIndex, setLingerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!aboutOpen) return;
@@ -68,6 +69,12 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     return () => {
       if (raf) cancelAnimationFrame(raf);
     };
+  }, [active]);
+
+  useEffect(() => {
+    setLingerIndex(null);
+    const timer = window.setTimeout(() => setLingerIndex(active), 3000);
+    return () => window.clearTimeout(timer);
   }, [active]);
 
   const topChrome = (
@@ -159,6 +166,14 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             const textOpacity = (introReady ? 1 : 0) * (1 - Math.min(0.3 * eased, 0.6));
             const textTranslate = 10 + eased * 4 + (introReady ? 0 : 10);
             const transitionDelay = introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
+            const isActive = idx === active;
+            const isLingered = lingerIndex === idx;
+            const imageScale = isActive ? (isLingered ? 1 : 1.018) : 1;
+            const imageTransition = isActive
+              ? isLingered
+                ? "transform 6000ms cubic-bezier(.25,.8,.35,1)"
+                : "transform 900ms ease"
+              : "transform 900ms ease";
 
             return (
               <article
@@ -182,6 +197,11 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                   fill
                   sizes="100vw"
                   className="object-cover"
+                  style={{
+                    transform: `scale(${imageScale})`,
+                    transition: imageTransition,
+                    willChange: "transform",
+                  }}
                   priority={idx < 2}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
