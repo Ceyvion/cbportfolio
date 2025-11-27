@@ -148,7 +148,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     <section className="relative h-screen min-h-[100dvh] overflow-hidden bg-[#0b0d12] text-white">
       {topChrome}
       <div
-        className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black/70 via-black/30 to-transparent"
+        className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black/60 via-black/25 to-transparent"
         aria-hidden
       />
 
@@ -172,12 +172,12 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             const transitionDelay = introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
             const isActive = idx === active;
             const isLingered = lingerIndex === idx;
-            const imageScale = isActive ? (isLingered ? 1 : 1.018) : 1;
+            const imageScale = isActive ? (isLingered ? 1 : 1.01) : 1;
             const imageTransition = isActive
               ? isLingered
-                ? "transform 6000ms cubic-bezier(.25,.8,.35,1)"
-                : "transform 900ms ease"
-              : "transform 900ms ease";
+                ? "transform 8000ms cubic-bezier(.24,.72,.28,1)"
+                : "transform 700ms cubic-bezier(.22,.61,.36,1)"
+              : "transform 700ms cubic-bezier(.22,.61,.36,1)";
 
             return (
               <article
@@ -204,6 +204,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                   style={{
                     transform: `scale(${imageScale})`,
                     transition: imageTransition,
+                    transformOrigin: "50% 50%",
                     willChange: "transform",
                   }}
                   priority={idx < 2}
