@@ -173,12 +173,12 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             const transitionDelay = introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
             const isActive = idx === active;
             const isLingered = lingerIndex === idx;
-            const imageScale = isActive ? (isLingered ? 1 : 1.01) : 1;
+            const imageScale = isActive && isLingered ? 0.992 : 1;
             const imageTransition = isActive
               ? isLingered
-                ? "transform 8000ms cubic-bezier(.24,.72,.28,1)"
-                : "transform 700ms cubic-bezier(.22,.61,.36,1)"
-              : "transform 700ms cubic-bezier(.22,.61,.36,1)";
+                ? "transform 10000ms cubic-bezier(.24,.72,.28,1)"
+                : "transform 600ms cubic-bezier(.22,.61,.36,1)"
+              : "transform 600ms cubic-bezier(.22,.61,.36,1)";
 
             return (
               <article
