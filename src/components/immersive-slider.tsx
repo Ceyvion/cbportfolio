@@ -22,6 +22,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [lingerIndex, setLingerIndex] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const predecoded = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!aboutOpen) return;
@@ -100,6 +101,28 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     const timer = window.setTimeout(() => setLingerIndex(active), 3000);
     return () => window.clearTimeout(timer);
   }, [active]);
+
+  // Preload and decode nearby images to avoid jank when they enter view
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const targets = [active - 1, active, active + 1, active + 2].filter(
+      (i) => i >= 0 && i < slides.length
+    );
+    targets.forEach((i) => {
+      const slide = slides[i];
+      if (!slide || slide.mediaType === "video") return;
+      if (predecoded.current.has(slide.src)) return;
+      const img = new window.Image();
+      img.decoding = "async";
+      img.src = slide.src;
+      const markDone = () => predecoded.current.add(slide.src);
+      img.onload = markDone;
+      img.onerror = markDone;
+      if (typeof img.decode === "function") {
+        img.decode().then(markDone).catch(markDone);
+      }
+    });
+  }, [active, slides]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
