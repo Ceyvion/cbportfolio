@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import { siteConfig } from "@/lib/site";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Slide = {
   src: string;
@@ -13,11 +13,15 @@ export type Slide = {
 export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const [active, setActive] = useState(0);
   const [smoothActive, setSmoothActive] = useState(0);
+  const rootRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollTargetRef = useRef(0);
+  const viewportHeightRef = useRef(1);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const [introReady, setIntroReady] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [lingerIndex, setLingerIndex] = useState<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!aboutOpen) return;
@@ -35,24 +39,42 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   }, [slides.length]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const items = itemRefs.current.slice();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible) {
-          const idx = Number((visible.target as HTMLElement).dataset.index || 0);
-          setActive(idx);
-        }
-      },
-      { root: containerRef.current, threshold: [0.25, 0.5, 0.75] }
-    );
-    items.forEach((el) => el && observer.observe(el));
+    const el = containerRef.current;
+    if (!el) return;
+    const maxIndex = Math.max(0, slides.length - 1);
+
+    const measureHeight = () => {
+      viewportHeightRef.current = el.clientHeight || 1;
+    };
+
+    const updateFromScroll = () => {
+      const height = viewportHeightRef.current || 1;
+      const target = Math.min(maxIndex, Math.max(0, el.scrollTop / height));
+      scrollTargetRef.current = target;
+      const nextActive = Math.round(target);
+      setActive((prev) => (prev === nextActive ? prev : nextActive));
+    };
+
+    const handleResize = () => {
+      measureHeight();
+      updateFromScroll();
+    };
+
+    measureHeight();
+    updateFromScroll();
+    el.addEventListener("scroll", updateFromScroll, { passive: true });
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(handleResize)
+        : null;
+    resizeObserver?.observe(el);
     return () => {
-      items.forEach((el) => el && observer.unobserve(el));
-      observer.disconnect();
+      el.removeEventListener("scroll", updateFromScroll);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+      resizeObserver?.disconnect();
     };
   }, [slides.length]);
 
@@ -60,9 +82,10 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     let raf: number | null = null;
     const animate = () => {
       setSmoothActive((prev) => {
-        const delta = active - prev;
-        if (Math.abs(delta) < 0.001) return prev;
-        return prev + delta * 0.12;
+        const target = Math.min(Math.max(scrollTargetRef.current, 0), Math.max(0, slides.length - 1));
+        const delta = target - prev;
+        if (Math.abs(delta) < 0.001) return target;
+        return prev + delta * 0.14;
       });
       raf = requestAnimationFrame(animate);
     };
@@ -70,13 +93,52 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     return () => {
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [active]);
+  }, [slides.length]);
 
   useEffect(() => {
     setLingerIndex(null);
     const timer = window.setTimeout(() => setLingerIndex(active), 3000);
     return () => window.clearTimeout(timer);
   }, [active]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const handleChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    handleChange();
+    document.addEventListener("fullscreenchange", handleChange);
+    return () => document.removeEventListener("fullscreenchange", handleChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (typeof document === "undefined") return;
+    const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
+    const el =
+      (rootRef.current as (HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void }) | null) ??
+      (doc.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void });
+
+    try {
+      if (doc.fullscreenElement) {
+        if (typeof doc.exitFullscreen === "function") await doc.exitFullscreen();
+        else if (typeof doc.webkitExitFullscreen === "function") await doc.webkitExitFullscreen();
+      } else if (el) {
+        if (typeof el.requestFullscreen === "function") await el.requestFullscreen();
+        else if (typeof el.webkitRequestFullscreen === "function") await el.webkitRequestFullscreen();
+      }
+    } catch (err) {
+      console.warn("Unable to toggle fullscreen", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleFullscreen]);
 
   const topChrome = (
     <>
@@ -94,6 +156,17 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             <span className="h-2 w-2 rounded-full bg-[conic-gradient(from_120deg_at_50%_50%,#f9ce34,#ee2a7b,#6228d7,#f9ce34)]" aria-hidden />
             Instagram
           </a>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-pressed={isFullscreen}
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.99]"
+          >
+            <span className="grid h-5 w-5 place-items-center rounded-full border border-white/30 text-[13px] text-white/80">
+              {isFullscreen ? "×" : "FS"}
+            </span>
+            {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          </button>
           <button
             type="button"
             onClick={() => setAboutOpen((v) => !v)}
@@ -117,7 +190,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                 Portrait sets captured by CB, meant to be walked through fullscreen. Each reload shuffles the order so you get a fresh glide every time.
               </p>
               <p className="text-xs text-white/60">
-                Built with Next.js + a physics-driven slider, tuned for smooth motion and full-bleed frames.
+                Built with Next.js + a physics-driven slider, tuned for smooth motion and full-bleed frames. Tap Fullscreen (or press F) to hide the chrome.
               </p>
             </div>
             <button
@@ -146,7 +219,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   }
 
   return (
-    <section className="relative h-screen min-h-[100dvh] overflow-hidden bg-[#0b0d12] text-white">
+    <section ref={rootRef} className="relative h-screen min-h-[100dvh] overflow-hidden bg-[#0b0d12] text-white">
       {topChrome}
       <div
         className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black/60 via-black/25 to-transparent"
