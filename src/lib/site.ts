@@ -3,9 +3,7 @@ export const siteConfig = {
   title: "CB Portfolio — Designer & Developer",
   description:
     "Personal portfolio showcasing work, experiments, and writing across web and design.",
-  url:
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"),
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://cb.studio",
   locale: "en_US",
   keywords: [
     "portfolio",
@@ -16,8 +14,9 @@ export const siteConfig = {
     "tailwindcss",
   ],
   author: "CB",
-  twitter: "@cb",
-  instagram: "https://instagram.com/",
+  twitter: "@cbstudio",
+  email: "hello@cb.studio",
+  instagram: "https://www.instagram.com/cb.studio",
 };
 
 export type SiteConfig = typeof siteConfig;

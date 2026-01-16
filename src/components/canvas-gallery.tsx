@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { PersonGroup } from "@/lib/photos";
+import { formatAltFromSrc } from "@/lib/alt";
 
 type Tile = { src: string; x: number; y: number; w: number; h: number; key: string };
 
@@ -130,21 +131,25 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
         style={{ transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})` }}
       >
         {/* Render tiles */}
-        {tiles.map((t) => (
-          <div
-            key={t.key}
-            className="absolute rounded-lg overflow-hidden shadow-sm shadow-black/40 ring-1 ring-white/10 hover:ring-white/20"
-            style={{ left: t.x, top: t.y, width: t.w, height: t.h }}
-            onClick={() => {
-              // Avoid click when dragging
-              if (moved.current) return;
-              setOpenTile(t);
-            }}
-          >
+        {tiles.map((t) => {
+          const tileAlt = formatAltFromSrc(t.src);
+          return (
+            <button
+              key={t.key}
+              type="button"
+              className="absolute rounded-lg overflow-hidden shadow-sm shadow-black/40 ring-1 ring-white/10 hover:ring-white/20"
+              style={{ left: t.x, top: t.y, width: t.w, height: t.h }}
+              onClick={() => {
+                // Avoid click when dragging
+                if (moved.current) return;
+                setOpenTile(t);
+              }}
+              aria-label={`Open ${tileAlt}`}
+            >
             <div className="relative h-full w-full">
               <Image
                 src={t.src}
-                alt=""
+                alt={formatAltFromSrc(t.src)}
                 fill
                 sizes="240px"
                 className="object-cover select-none pointer-events-none"
@@ -152,8 +157,9 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
                 loading="lazy"
               />
             </div>
-          </div>
-        ))}
+          </button>
+          );
+        })}
       </div>
 
       {/* Minimal lightbox with no text */}
@@ -163,7 +169,7 @@ export function CanvasGallery({ groups }: { groups: PersonGroup[] }) {
             <div className="relative h-full w-full">
               <Image
                 src={openTile.src}
-                alt=""
+                alt={formatAltFromSrc(openTile.src)}
                 fill
                 sizes="100vw"
                 className="object-contain"

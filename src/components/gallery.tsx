@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
+import { formatAltFromSrc } from "@/lib/alt";
 
 export function Gallery({ photos }: { photos: string[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -44,11 +45,11 @@ export function Gallery({ photos }: { photos: string[] }) {
             key={src}
             className="group relative aspect-[4/3] overflow-hidden rounded-lg bg-black/[0.04] dark:bg-white/[0.06]"
             onClick={() => setOpenIndex(i)}
-            aria-label={`Open image ${i + 1}`}
+            aria-label={`Open ${formatAltFromSrc(src)}`}
           >
             <Image
               src={src}
-              alt="Artwork"
+              alt={formatAltFromSrc(src)}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
@@ -68,7 +69,7 @@ export function Gallery({ photos }: { photos: string[] }) {
           <div className="relative w-full max-w-6xl aspect-[16/10]" onClick={(e) => e.stopPropagation()}>
             <Image
               src={photos[openIndex]}
-              alt={`Artwork ${openIndex + 1}`}
+              alt={formatAltFromSrc(photos[openIndex])}
               fill
               sizes="100vw"
               className="object-contain"
@@ -107,4 +108,3 @@ export function Gallery({ photos }: { photos: string[] }) {
     </>
   );
 }
-

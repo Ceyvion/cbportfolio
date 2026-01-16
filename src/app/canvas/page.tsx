@@ -1,5 +1,26 @@
+import type { Metadata } from "next";
 import { listPhotoGroups } from "@/lib/photos";
 import { DeckGallery } from "@/components/deck-gallery";
+import { siteConfig } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "Canvas Gallery",
+  description: "Physics-driven deck gallery of portrait sets with drag-based navigation.",
+  alternates: {
+    canonical: "/canvas",
+  },
+  openGraph: {
+    title: "Canvas Gallery",
+    description: "Physics-driven deck gallery of portrait sets with drag-based navigation.",
+    url: "/canvas",
+    siteName: siteConfig.name,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Canvas Gallery",
+    description: "Physics-driven deck gallery of portrait sets with drag-based navigation.",
+  },
+};
 
 function shuffle<T>(items: T[]): T[] {
   const arr = [...items];

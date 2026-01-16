@@ -3,6 +3,7 @@ import NextImage from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { formatAltFromSrc } from "@/lib/alt";
 
 export function DeckGallery({ photos }: { photos: string[] }) {
   const [mounted, setMounted] = useState(false);
@@ -461,6 +462,7 @@ export function DeckGallery({ photos }: { photos: string[] }) {
             const isCenter = Math.abs(offset) < 0.5;
             // Natural jitter based on index for non-uniform stack
             const photoKey = items[idx];
+            const photoAlt = formatAltFromSrc(photoKey);
             const jitter = jitterForKey(photoKey);
             const baseTranslateX = isCenter
               ? `calc(${(offset * d.spacingX).toFixed(1)}px + var(--drag-x, 0px))`
@@ -497,12 +499,12 @@ export function DeckGallery({ photos }: { photos: string[] }) {
                   if (Math.abs(xRef.current) > 6) return;
                   setLightbox(idx);
                 }}
-                aria-label="Open image"
+                aria-label={`Open ${photoAlt}`}
               >
                 <div className={`absolute inset-0 bg-white/[0.06] ${lowPower || !isCenter ? 'backdrop-blur-none' : 'backdrop-blur-sm'}`} />
                 <NextImage
                   src={items[idx]}
-                  alt=""
+                  alt={photoAlt}
                   fill
                   sizes="(max-width: 640px) 90vw, (max-width: 1024px) 70vw, 900px"
                   className={`${lowPower || !isCenter ? '' : 'mix-blend-luminosity'} ${imageStatus[photoKey] === 'loaded' ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200 object-cover`}
@@ -765,7 +767,7 @@ function Lightbox({
       >
         <NextImage
           src={src}
-          alt=""
+          alt={formatAltFromSrc(src)}
           fill
           sizes="100vw"
           className="object-contain select-none"

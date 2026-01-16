@@ -20,6 +20,12 @@ body {
   scroll-behavior: smooth;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  body {
+    scroll-behavior: auto;
+  }
+}
+
 ::selection {
   background: #e2f0ec;
   color: #0f172a;
