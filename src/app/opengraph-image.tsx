@@ -1,5 +1,9 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { siteConfig } from "@/lib/site";
+
+export const runtime = "nodejs";
 
 export const size = {
   width: 1200,
@@ -8,9 +12,7 @@ export const size = {
 
 export const contentType = "image/png";
 
-const geistFont = fetch(new URL("./fonts/GeistVF.woff", import.meta.url)).then((res) =>
-  res.arrayBuffer()
-);
+const geistFont = readFile(path.join(process.cwd(), "src/app/fonts/Geist-SemiBold.ttf"));
 
 export default async function OpenGraphImage() {
   const geist = await geistFont;
@@ -27,7 +29,7 @@ export default async function OpenGraphImage() {
           padding: "72px",
           backgroundColor: "#0b0d12",
           backgroundImage:
-            "radial-gradient(900px 900px at 30% 20%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(1200px 1100px at 70% -10%, rgba(71,149,132,0.22), transparent 60%), radial-gradient(1000px 1000px at 40% 90%, rgba(120,126,241,0.18), transparent 60%)",
+            "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(circle at 70% -10%, rgba(71,149,132,0.22), transparent 60%), radial-gradient(circle at 40% 90%, rgba(120,126,241,0.18), transparent 60%)",
           color: "#f6f1e7",
         }}
       >

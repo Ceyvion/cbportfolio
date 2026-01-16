@@ -1,5 +1,9 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { siteConfig } from "@/lib/site";
+
+export const runtime = "nodejs";
 
 export const size = {
   width: 1200,
@@ -8,9 +12,7 @@ export const size = {
 
 export const contentType = "image/png";
 
-const geistFont = fetch(new URL("./fonts/GeistVF.woff", import.meta.url)).then((res) =>
-  res.arrayBuffer()
-);
+const geistFont = readFile(path.join(process.cwd(), "src/app/fonts/Geist-SemiBold.ttf"));
 
 export default async function TwitterImage() {
   const geist = await geistFont;
@@ -27,7 +29,7 @@ export default async function TwitterImage() {
           padding: "64px",
           backgroundColor: "#0b0d12",
           backgroundImage:
-            "radial-gradient(800px 800px at 20% 15%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(1100px 900px at 78% -8%, rgba(71,149,132,0.24), transparent 60%), radial-gradient(900px 900px at 50% 88%, rgba(120,126,241,0.2), transparent 60%)",
+            "radial-gradient(circle at 20% 15%, rgba(255,255,255,0.08), transparent 60%), radial-gradient(circle at 78% -8%, rgba(71,149,132,0.24), transparent 60%), radial-gradient(circle at 50% 88%, rgba(120,126,241,0.2), transparent 60%)",
           color: "#f6f1e7",
         }}
       >
