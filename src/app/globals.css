@@ -3,18 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --background: #f6f1e7;
-  --foreground: #0f172a;
-  --muted: #5f6b7a;
-  --border: #e5e7eb;
-  --card: #ffffff;
-  --accent: #479584;
+  --background: #05060b;
+  --foreground: #eef2f8;
+  --muted: #98a5b8;
+  --border: #1b2435;
+  --card: #0f1522;
+  --accent: #31f6ff;
+  --accent-hot: #ff5a1f;
+  --accent-lime: #c7ff4a;
+  --accent-gold: #f7c56a;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-space), var(--font-geist-sans), "Helvetica Neue", Arial, sans-serif;
   letter-spacing: -0.01em;
   line-height: 1.6;
   scroll-behavior: smooth;
@@ -27,6 +30,6 @@ body {
 }
 
 ::selection {
-  background: #e2f0ec;
-  color: #0f172a;
+  background: rgba(49, 246, 255, 0.35);
+  color: #05060b;
 }

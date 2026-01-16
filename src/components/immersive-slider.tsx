@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { siteConfig } from "@/lib/site";
 import { formatAltFromSrc } from "@/lib/alt";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
 export type Slide = {
@@ -92,6 +92,10 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const predecoded = useRef<Set<string>>(new Set());
+  const { videoCount, photoCount } = useMemo(() => {
+    const videos = slides.filter((slide) => slide.mediaType === "video").length;
+    return { videoCount: videos, photoCount: Math.max(0, slides.length - videos) };
+  }, [slides]);
 
   useEffect(() => {
     if (!aboutOpen && !projectsOpen) return;
@@ -261,6 +265,14 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const safeTop = "calc(env(safe-area-inset-top, 0px) + 20px)";
   const safeTopPanel = "calc(env(safe-area-inset-top, 0px) + 78px)";
   const safeTopHero = "calc(env(safe-area-inset-top, 0px) + 84px)";
+  const progress = slides.length > 1 ? active / (slides.length - 1) : 0;
+  const progressPercent = Math.min(100, Math.max(0, progress * 100));
+  const chromeButton =
+    "inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-md transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.99]";
+  const heroPrimary =
+    "inline-flex items-center gap-2 rounded-full border border-white/20 bg-[linear-gradient(120deg,rgba(49,246,255,0.3),rgba(255,90,31,0.4))] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-md transition hover:border-white/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  const heroSecondary =
+    "inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/40 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/85 shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-md transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
   const toggleFullscreen = useCallback(async () => {
     if (typeof document === "undefined") return;
@@ -315,11 +327,22 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const topChrome = (
     <>
       <div
-        className="fixed left-1/2 z-30 flex w-[min(1200px,calc(100%-24px))] -translate-x-1/2 items-center justify-between gap-3 px-3 sm:px-6"
+        className={`fixed left-1/2 z-40 flex w-[min(1240px,calc(100%-24px))] -translate-x-1/2 items-center justify-between gap-3 px-3 transition duration-700 ease-out sm:px-6 ${
+          introReady ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+        }`}
         style={{ top: safeTop }}
       >
-        <div className="text-[11px] font-medium uppercase tracking-[0.24em] text-white/70">
-          Still wing
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70">
+            <span
+              className="h-2 w-2 rounded-full bg-[radial-gradient(circle,#31f6ff,transparent_65%)] shadow-[0_0_14px_rgba(49,246,255,0.7)]"
+              aria-hidden
+            />
+            Live set
+          </div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.36em] text-white/60">
+            CB Studio
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -328,7 +351,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
               setProjectsOpen((v) => !v);
               setAboutOpen(false);
             }}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.99]"
+            className={chromeButton}
             aria-expanded={projectsOpen}
             aria-controls="projects-panel"
           >
@@ -339,7 +362,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             href={siteConfig.instagram}
             target="_blank"
             rel="noreferrer noopener"
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className={`${chromeButton} hidden sm:inline-flex`}
           >
             <span className="h-2 w-2 rounded-full bg-[conic-gradient(from_120deg_at_50%_50%,#f9ce34,#ee2a7b,#6228d7,#f9ce34)]" aria-hidden />
             Instagram
@@ -348,12 +371,14 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             type="button"
             onClick={toggleFullscreen}
             aria-pressed={isFullscreen}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.99]"
+            className={chromeButton}
           >
             <span className="grid h-5 w-5 place-items-center rounded-full border border-white/30 text-[13px] text-white/80">
               {isFullscreen ? "×" : "FS"}
             </span>
-            {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            <span className="hidden sm:inline">
+              {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            </span>
           </button>
           <button
             type="button"
@@ -361,7 +386,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
               setAboutOpen((v) => !v);
               setProjectsOpen(false);
             }}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.99]"
+            className={chromeButton}
             aria-expanded={aboutOpen}
             aria-controls="about-panel"
           >
@@ -369,24 +394,35 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             <span className="text-base leading-none">{aboutOpen ? "–" : "+"}</span>
           </button>
         </div>
-        <div className="text-[11px] font-medium uppercase tracking-[0.24em] text-white/70">
-          {slides.length} frames
+        <div className="hidden md:flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em] text-white/55">
+          <span className="text-white/80">{photoCount}</span> stills
+          <span className="h-1 w-1 rounded-full bg-white/30" />
+          <span className="text-white/80">{videoCount}</span> motion
         </div>
       </div>
 
       <div
-        className="fixed left-1/2 z-20 flex w-[min(1100px,calc(100%-28px))] -translate-x-1/2 flex-col gap-3 px-4 text-left text-white sm:flex-row sm:items-end sm:justify-between sm:gap-6 sm:px-8"
+        className={`fixed left-1/2 z-20 flex w-[min(1140px,calc(100%-28px))] -translate-x-1/2 flex-col gap-4 px-4 text-left text-white transition duration-700 ease-out sm:flex-row sm:items-end sm:justify-between sm:gap-8 sm:px-8 ${
+          introReady ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+        }`}
         style={{ top: safeTopHero }}
       >
-        <div className="max-w-[520px] space-y-3">
-          <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-            Creative direction · Visual systems · Web
-          </p>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-light leading-tight text-white/95">
-            Design director focused on portrait-driven brand systems that turn quiet stories into higher-converting launches.
+        <div className="max-w-[560px] space-y-4">
+          <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.38em] text-white/60">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-white/70">
+              Portrait direction
+            </span>
+            <span className="text-white/50">Identity · Motion · Web</span>
+          </div>
+          <h1 className="font-[var(--font-display)] text-[clamp(2.2rem,6vw,4.6rem)] uppercase leading-[0.95] text-white">
+            Portraits that hit harder{" "}
+            <span className="bg-[linear-gradient(90deg,var(--accent),var(--accent-lime),var(--accent-hot))] bg-clip-text text-transparent">
+              in motion
+            </span>
+            .
           </h1>
-          <p className="text-sm leading-6 text-white/75">
-            CB is a multidisciplinary designer crafting identity, editorial, and web experiences for studios, cultural brands, and small teams. The work blends cinematic composition with precise digital execution so each project feels intentional and lived-in.{" "}
+          <p className="text-sm sm:text-base leading-6 text-white/75">
+            CB builds cinematic portrait worlds for studios and cultural brands, turning quiet stories into loud launches.{" "}
             <button
               type="button"
               onClick={() => setAboutOpen(true)}
@@ -396,17 +432,31 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
               <span aria-hidden>→</span>
             </button>
           </p>
-          <p className="text-[11px] uppercase tracking-[0.28em] text-white/50">
-            Scroll or use arrow keys · Press F for fullscreen
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <a href={`mailto:${siteConfig.email}`} className={heroPrimary}>
+              Start a project
+            </a>
+            <button type="button" onClick={() => scrollToIndex(0)} className={heroSecondary}>
+              Watch reel
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-[0.32em] text-white/55">
+            <span>{slides.length} frames</span>
+            <span>{photoCount} stills</span>
+            <span>{videoCount} motion</span>
+            <span className="text-white/45">Scroll or arrow keys</span>
+            <span className="text-white/45">Press F for fullscreen</span>
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-white/70">
+        <div className="hidden sm:flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-[10px] uppercase tracking-[0.28em] text-white/65 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md">
+          <span className="text-white/80">Now booking</span>
           <a
             href={`mailto:${siteConfig.email}`}
-            className="rounded-full border border-white/20 bg-white/10 px-4 py-2 font-semibold text-white/85 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="text-xs font-semibold uppercase tracking-[0.22em] text-white/90"
           >
             {siteConfig.email}
           </a>
+          <span className="text-white/45">Worldwide</span>
         </div>
       </div>
 
@@ -416,7 +466,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
           role="dialog"
           aria-modal="false"
           aria-label="About CB"
-          className="fixed right-4 z-40 w-[min(360px,calc(100%-28px))] rounded-3xl border border-white/20 bg-black/70 px-5 py-4 text-white shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:right-6"
+          className="fixed right-4 z-40 w-[min(360px,calc(100%-28px))] rounded-3xl border border-white/10 bg-[#0c101b]/85 px-5 py-4 text-white shadow-[0_24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:right-6"
           style={{ top: safeTopPanel }}
         >
           <div className="flex items-start justify-between gap-3">
@@ -431,7 +481,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             <button
               type="button"
               onClick={() => setAboutOpen(false)}
-              className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              className="rounded-full border border-white/15 bg-white/5 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
               aria-label="Close about"
             >
               ×
@@ -446,7 +496,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
           role="dialog"
           aria-modal="false"
           aria-label="Selected projects"
-          className="fixed left-4 z-40 w-[min(520px,calc(100%-32px))] rounded-[32px] border border-white/15 bg-black/75 px-5 py-5 text-white shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:left-6"
+          className="fixed left-4 z-40 w-[min(520px,calc(100%-32px))] rounded-[32px] border border-white/10 bg-[#0c101b]/85 px-5 py-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:left-6"
           style={{ top: safeTopPanel }}
         >
           <div className="flex items-start justify-between gap-3">
@@ -463,7 +513,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                 {projects.map((project) => (
                   <div
                     key={project.name}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.35)]"
+                    className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
                   >
                     <p className="text-sm font-semibold text-white/95">{project.name}</p>
                     <p className="text-xs uppercase tracking-[0.22em] text-white/60">{project.type}</p>
@@ -474,7 +524,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
               <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/70">
                 <a
                   href={`mailto:${siteConfig.email}`}
-                  className="rounded-full border border-white/20 bg-white/10 px-4 py-2 font-semibold text-white/85 transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  className="rounded-full border border-white/15 bg-white/10 px-4 py-2 font-semibold text-white/85 transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   Email
                 </a>
@@ -482,7 +532,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                   href={siteConfig.instagram}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="rounded-full border border-white/20 bg-white/10 px-4 py-2 font-semibold text-white/85 transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  className="rounded-full border border-white/15 bg-white/10 px-4 py-2 font-semibold text-white/85 transition hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   Instagram
                 </a>
@@ -491,7 +541,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
             <button
               type="button"
               onClick={() => setProjectsOpen(false)}
-              className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              className="rounded-full border border-white/15 bg-white/5 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
               aria-label="Close projects"
             >
               ×
@@ -504,9 +554,9 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
 
   if (slides.length === 0) {
     return (
-      <section className="relative flex h-screen min-h-[100dvh] items-center justify-center px-6 text-center text-sm text-white/70 bg-[#0b0d12]">
+      <section className="relative flex h-screen min-h-[100dvh] items-center justify-center bg-[#05060b] px-6 text-center text-sm text-white/70">
         {topChrome}
-        <div className="rounded-[38px] border border-white/10 bg-white/5 px-6 py-10">
+        <div className="rounded-[38px] border border-white/15 bg-white/5 px-6 py-10 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-md">
           No images yet. Add files to <code className="rounded bg-white/10 px-1">public/photos</code> and refresh to light up this view.
         </div>
       </section>
@@ -517,20 +567,37 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     <section
       ref={rootRef}
       aria-label="Immersive portrait slider"
-      className="relative h-screen min-h-[100dvh] overflow-hidden bg-[#0b0d12] text-white"
+      className="relative h-screen min-h-[100dvh] overflow-hidden bg-[#05060b] text-white"
     >
-      {topChrome}
       <div
-        className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black/60 via-black/25 to-transparent"
+        className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(900px_900px_at_12%_20%,rgba(49,246,255,0.22),transparent_60%),radial-gradient(1000px_1000px_at_90%_10%,rgba(255,90,31,0.18),transparent_60%),radial-gradient(800px_800px_at_50%_90%,rgba(199,255,74,0.14),transparent_60%)]"
         aria-hidden
       />
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-40 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.06),rgba(255,255,255,0.06)_1px,transparent_1px,transparent_7px)]"
+        aria-hidden
+      />
+      {topChrome}
+      <div
+        className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent"
+        aria-hidden
+      />
+      <div className="fixed bottom-6 right-6 z-30 hidden items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-white/65 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md sm:flex">
+        <span>Frame {active + 1}</span>
+        <div className="h-[2px] w-24 rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-[color:var(--accent)] shadow-[0_0_14px_rgba(49,246,255,0.8)]"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
 
       <div
         ref={containerRef}
-        className="relative h-full overflow-y-auto snap-y snap-mandatory overscroll-contain"
+        className="relative z-10 h-full overflow-y-auto snap-y snap-mandatory overscroll-contain"
         style={{ scrollBehavior: reduceMotion ? "auto" : "smooth" }}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(900px_900px_at_30%_20%,rgba(255,255,255,0.08),transparent_60%),radial-gradient(1200px_1100px_at_70%_-10%,rgba(71,149,132,0.22),transparent_60%),radial-gradient(1000px_1000px_at_40%_90%,rgba(120,126,241,0.18),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(820px_820px_at_32%_20%,rgba(49,246,255,0.12),transparent_60%),radial-gradient(900px_900px_at_70%_-10%,rgba(255,90,31,0.12),transparent_60%),radial-gradient(700px_700px_at_46%_90%,rgba(199,255,74,0.1),transparent_60%)]" />
 
         {(() => {
           const windowRadius = 3;
@@ -561,6 +628,8 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                 const shouldPlay = slide.mediaType === "video" && !reduceMotion && Math.abs(idx - active) <= 1;
                 const mediaLabel = slide.title ? `${slide.title} — ${slide.subtitle}` : "Portrait capture";
                 const altText = slide.mediaType === "video" ? "" : slide.title ? mediaLabel : formatAltFromSrc(slide.src);
+                const frameLabel = String(idx + 1).padStart(2, "0");
+                const totalLabel = String(slides.length).padStart(2, "0");
 
                 return (
                   <article
@@ -619,14 +688,36 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                         />
                       )}
                     </div>
+                    <div
+                      className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(600px_420px_at_20%_20%,rgba(49,246,255,0.24),transparent_62%),radial-gradient(600px_420px_at_85%_15%,rgba(255,90,31,0.2),transparent_65%)] opacity-70 mix-blend-screen"
+                      aria-hidden
+                    />
 
                     <div className="absolute inset-0 z-20 flex flex-col justify-end gap-3 px-6 pb-[calc(env(safe-area-inset-bottom,0)+56px)] sm:px-10 sm:pb-[calc(env(safe-area-inset-bottom,0)+64px)]">
                       <div
-                        className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/65 via-black/25 to-transparent"
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/75 via-black/30 to-transparent"
                         aria-hidden
                       />
+                      <div
+                        className="relative flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.3em] text-white/70"
+                        style={{
+                          opacity: Math.max(0, textOpacity - 0.1),
+                          transform: `translateY(${textTranslate - 8}px)`,
+                          transition: motionSafe
+                            ? "opacity 900ms ease, transform 900ms cubic-bezier(.22,.61,.36,1)"
+                            : "none",
+                        }}
+                      >
+                        <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
+                          Frame {frameLabel} / {totalLabel}
+                        </span>
+                        <span
+                          className="h-[2px] w-12 bg-[linear-gradient(90deg,var(--accent),transparent)]"
+                          aria-hidden
+                        />
+                      </div>
                       <h2
-                        className="relative text-4xl sm:text-5xl lg:text-6xl font-light leading-tight tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
+                        className="relative font-[var(--font-display)] text-[clamp(2.6rem,6vw,5rem)] uppercase leading-[0.95] tracking-[0.02em] text-white drop-shadow-[0_12px_36px_rgba(0,0,0,0.55)]"
                         style={{
                           opacity: textOpacity,
                           transform: `translateY(${textTranslate}px)`,
@@ -638,7 +729,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                         {slide.title}
                       </h2>
                       <p
-                        className="relative text-sm sm:text-base text-white/85 font-light drop-shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
+                        className="relative text-sm sm:text-base text-white/80 drop-shadow-[0_10px_28px_rgba(0,0,0,0.55)]"
                         style={{
                           opacity: Math.max(0, textOpacity - 0.05),
                           transform: `translateY(${textTranslate + 6}px)`,
@@ -649,18 +740,6 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                       >
                         {slide.subtitle}
                       </p>
-                      <span
-                        className="relative text-xs font-medium uppercase tracking-[0.2em] text-white/70"
-                        style={{
-                          opacity: Math.max(0, textOpacity - 0.1),
-                          transform: `translateY(${textTranslate + 10}px)`,
-                          transition: motionSafe
-                            ? "opacity 900ms ease, transform 900ms cubic-bezier(.22,.61,.36,1)"
-                            : "none",
-                        }}
-                      >
-                        {idx + 1} / {slides.length}
-                      </span>
                     </div>
                   </article>
                 );
