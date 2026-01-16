@@ -348,14 +348,11 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                 const baseOpacity = motionSafe ? 1 - Math.min(0.12 * eased, 0.35) : 1;
                 const slideOpacity = introReady ? baseOpacity : 0;
                 const translateY = motionSafe ? (introReady ? 0 : 14) + eased * 4 : 0;
-                const textOpacity = motionSafe
-                  ? (introReady ? 1 : 0) * (1 - Math.min(0.3 * eased, 0.6))
-                  : 1;
-                const textTranslate = motionSafe ? 10 + eased * 4 + (introReady ? 0 : 10) : 0;
                 const transitionDelay = motionSafe && introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
                 const shouldPlay = slide.mediaType === "video" && !reduceMotion && Math.abs(idx - active) <= 1;
-                const mediaLabel = slide.title ? `${slide.title} — ${slide.subtitle}` : "Image capture";
-                const altText = slide.mediaType === "video" ? "" : slide.title ? mediaLabel : formatAltFromSrc(slide.src);
+                const mediaLabel = slide.title || "Image capture";
+                const altText =
+                  slide.mediaType === "video" ? "" : slide.title ? slide.title : formatAltFromSrc(slide.src);
 
                 return (
                   <article
@@ -416,36 +413,6 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                       aria-hidden
                     />
 
-                    <div className="absolute inset-0 z-20 flex flex-col justify-end gap-3 px-6 pb-[calc(env(safe-area-inset-bottom,0)+56px)] sm:px-10 sm:pb-[calc(env(safe-area-inset-bottom,0)+64px)]">
-                      <div
-                        className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/75 via-black/30 to-transparent"
-                        aria-hidden
-                      />
-                      <h2
-                        className="relative font-[var(--font-display)] text-[clamp(2.6rem,6vw,5rem)] uppercase leading-[0.95] tracking-[0.02em] text-white drop-shadow-[0_12px_36px_rgba(0,0,0,0.55)]"
-                        style={{
-                          opacity: textOpacity,
-                          transform: `translateY(${textTranslate}px)`,
-                          transition: motionSafe
-                            ? "opacity 900ms ease, transform 900ms cubic-bezier(.22,.61,.36,1)"
-                            : "none",
-                        }}
-                      >
-                        {slide.title}
-                      </h2>
-                      <p
-                        className="relative text-sm sm:text-base text-white/80 drop-shadow-[0_10px_28px_rgba(0,0,0,0.55)]"
-                        style={{
-                          opacity: Math.max(0, textOpacity - 0.05),
-                          transform: `translateY(${textTranslate + 6}px)`,
-                          transition: motionSafe
-                            ? "opacity 900ms ease, transform 900ms cubic-bezier(.22,.61,.36,1)"
-                            : "none",
-                        }}
-                      >
-                        {slide.subtitle}
-                      </p>
-                    </div>
                   </article>
                 );
               })}
