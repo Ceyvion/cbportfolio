@@ -89,7 +89,6 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const [introReady, setIntroReady] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
-  const [lingerIndex, setLingerIndex] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const predecoded = useRef<Set<string>>(new Set());
@@ -200,16 +199,6 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
       if (raf) cancelAnimationFrame(raf);
     };
   }, [slides.length, reduceMotion]);
-
-  useEffect(() => {
-    if (reduceMotion) {
-      setLingerIndex(null);
-      return;
-    }
-    setLingerIndex(null);
-    const timer = window.setTimeout(() => setLingerIndex(active), 3000);
-    return () => window.clearTimeout(timer);
-  }, [active, reduceMotion]);
 
   // Preload and decode nearby images to avoid jank when they enter view
   useEffect(() => {
@@ -561,7 +550,6 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                 const effectiveActive = motionSafe ? smoothActive : active;
                 const distance = Math.abs(idx - effectiveActive);
                 const eased = distance < 0.001 ? 0 : distance;
-                const scale = motionSafe ? (eased === 0 ? 1 : 1 - Math.min(0.04 * eased, 0.1)) : 1;
                 const baseOpacity = motionSafe ? 1 - Math.min(0.12 * eased, 0.35) : 1;
                 const slideOpacity = introReady ? baseOpacity : 0;
                 const translateY = motionSafe ? (introReady ? 0 : 14) + eased * 4 : 0;
@@ -570,17 +558,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                   : 1;
                 const textTranslate = motionSafe ? 10 + eased * 4 + (introReady ? 0 : 10) : 0;
                 const transitionDelay = motionSafe && introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
-                const isActive = idx === active;
-                const isLingered = motionSafe && lingerIndex === idx;
-                const imageScale = isActive && isLingered ? 0.992 : 1;
                 const shouldPlay = slide.mediaType === "video" && !reduceMotion && Math.abs(idx - active) <= 1;
-                const imageTransition = motionSafe
-                  ? isActive
-                    ? isLingered
-                      ? "transform 10000ms cubic-bezier(.24,.72,.28,1)"
-                      : "transform 600ms cubic-bezier(.22,.61,.36,1)"
-                    : "transform 600ms cubic-bezier(.22,.61,.36,1)"
-                  : "none";
                 const mediaLabel = slide.title ? `${slide.title} — ${slide.subtitle}` : "Portrait capture";
                 const altText = slide.mediaType === "video" ? "" : slide.title ? mediaLabel : formatAltFromSrc(slide.src);
 
@@ -593,7 +571,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                     }}
                     className="relative h-screen min-h-[100dvh] snap-start"
                     style={{
-                      transform: `translateY(${translateY}px) scale(${scale})`,
+                      transform: `translateY(${translateY}px)`,
                       opacity: slideOpacity,
                       transition: motionSafe
                         ? "transform 900ms cubic-bezier(.22,.61,.36,1), opacity 900ms ease"
@@ -621,10 +599,6 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                           ariaLabel={mediaLabel}
                           className="h-full w-full object-cover"
                           style={{
-                            transform: `scale(${imageScale})`,
-                            transition: imageTransition,
-                            transformOrigin: "50% 50%",
-                            willChange: "transform",
                             backfaceVisibility: "hidden",
                             WebkitBackfaceVisibility: "hidden",
                           }}
@@ -637,10 +611,6 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                           sizes="100vw"
                           className="object-cover"
                           style={{
-                            transform: `scale(${imageScale})`,
-                            transition: imageTransition,
-                            transformOrigin: "50% 50%",
-                            willChange: "transform",
                             backfaceVisibility: "hidden",
                             WebkitBackfaceVisibility: "hidden",
                           }}
