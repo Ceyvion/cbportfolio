@@ -13,6 +13,8 @@ export type Slide = {
   poster?: string;
 };
 
+type AttentionMode = "Discovery" | "Intimate" | "Flow";
+
 function VideoSlide({
   src,
   poster,
@@ -77,9 +79,33 @@ function VideoSlide({
   );
 }
 
+function reorderTail(
+  fullSlides: Slide[],
+  startIndex: number,
+  titleAffinity: Map<string, number>
+): Slide[] {
+  if (startIndex >= fullSlides.length - 2) return fullSlides;
+  const locked = fullSlides.slice(0, startIndex + 2);
+  const tail = fullSlides.slice(startIndex + 2);
+  const now = Date.now();
+  tail.sort((a, b) => {
+    const scoreA = (titleAffinity.get(a.title) ?? 0) + (a.mediaType === "video" ? 0.2 : 0);
+    const scoreB = (titleAffinity.get(b.title) ?? 0) + (b.mediaType === "video" ? 0.2 : 0);
+    if (scoreA !== scoreB) return scoreB - scoreA;
+    const noiseA = Math.sin((now + a.src.length * 13) * 0.001) * 0.1;
+    const noiseB = Math.sin((now + b.src.length * 13) * 0.001) * 0.1;
+    return noiseB - noiseA;
+  });
+  return [...locked, ...tail];
+}
+
 export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
+  const [orderedSlides, setOrderedSlides] = useState(slides);
   const [active, setActive] = useState(0);
   const [smoothActive, setSmoothActive] = useState(0);
+  const [attentionMode, setAttentionMode] = useState<AttentionMode>("Discovery");
+  const [attentionScore, setAttentionScore] = useState(0);
+  const [affinityTop, setAffinityTop] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollTargetRef = useRef(0);
   const smoothActiveRef = useRef(0);
@@ -89,6 +115,20 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const [introReady, setIntroReady] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const predecoded = useRef<Set<string>>(new Set());
+  const titleAffinityRef = useRef<Map<string, number>>(new Map());
+  const lastActiveRef = useRef(0);
+  const lastChangeTimeRef = useRef<number>(typeof performance !== "undefined" ? performance.now() : 0);
+
+  useEffect(() => {
+    setOrderedSlides(slides);
+    titleAffinityRef.current = new Map();
+    setAttentionMode("Discovery");
+    setAttentionScore(0);
+    setAffinityTop(null);
+    lastActiveRef.current = 0;
+    lastChangeTimeRef.current = performance.now();
+  }, [slides]);
+
   useEffect(() => {
     smoothActiveRef.current = smoothActive;
   }, [smoothActive]);
@@ -120,12 +160,12 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     setIntroReady(false);
     const id = requestAnimationFrame(() => setIntroReady(true));
     return () => cancelAnimationFrame(id);
-  }, [slides.length, reduceMotion]);
+  }, [orderedSlides.length, reduceMotion]);
 
   const startSmooth = useCallback(() => {
     if (reduceMotion || smoothRafRef.current !== null) return;
     const step = () => {
-      const maxIndex = Math.max(0, slides.length - 1);
+      const maxIndex = Math.max(0, orderedSlides.length - 1);
       const target = Math.min(Math.max(scrollTargetRef.current, 0), maxIndex);
       const prev = smoothActiveRef.current;
       const delta = target - prev;
@@ -142,12 +182,12 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     };
 
     smoothRafRef.current = requestAnimationFrame(step);
-  }, [reduceMotion, slides.length]);
+  }, [reduceMotion, orderedSlides.length]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const maxIndex = Math.max(0, slides.length - 1);
+    const maxIndex = Math.max(0, orderedSlides.length - 1);
 
     const measureHeight = () => {
       const nextHeight = el.clientHeight || 1;
@@ -175,9 +215,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     window.addEventListener("resize", handleResize);
     window.addEventListener("orientationchange", handleResize);
     const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(handleResize)
-        : null;
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(handleResize) : null;
     resizeObserver?.observe(el);
     return () => {
       el.removeEventListener("scroll", updateFromScroll);
@@ -185,7 +223,7 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
       window.removeEventListener("orientationchange", handleResize);
       resizeObserver?.disconnect();
     };
-  }, [slides.length, startSmooth]);
+  }, [orderedSlides.length, startSmooth]);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -208,14 +246,45 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (active === lastActiveRef.current) return;
+    const now = performance.now();
+    const elapsed = now - lastChangeTimeRef.current;
+    const prevIndex = lastActiveRef.current;
+    const prevSlide = orderedSlides[prevIndex];
+    if (prevSlide) {
+      const affinityDelta = Math.max(-0.4, Math.min(2.2, (elapsed - 850) / 1100));
+      const existing = titleAffinityRef.current.get(prevSlide.title) ?? 0;
+      titleAffinityRef.current.set(prevSlide.title, existing + affinityDelta);
+      const sorted = [...titleAffinityRef.current.entries()].sort((a, b) => b[1] - a[1]);
+      setAffinityTop(sorted[0]?.[0] ?? null);
+      const movingBackward = active < prevIndex;
+      const modeDelta = movingBackward ? 0.35 : affinityDelta * 0.22;
+      setAttentionScore((prev) => {
+        const next = Math.max(-6, Math.min(8, prev + modeDelta));
+        if (next > 1.25) {
+          setAttentionMode("Intimate");
+        } else if (next < -1.5) {
+          setAttentionMode("Flow");
+        } else {
+          setAttentionMode("Discovery");
+        }
+        return next;
+      });
+      setOrderedSlides((prev) => reorderTail(prev, active, titleAffinityRef.current));
+    }
+    lastActiveRef.current = active;
+    lastChangeTimeRef.current = now;
+  }, [active, orderedSlides]);
+
   // Preload and decode nearby images to avoid jank when they enter view
   useEffect(() => {
     if (typeof window === "undefined") return;
     const targets = [active - 1, active, active + 1, active + 2].filter(
-      (i) => i >= 0 && i < slides.length
+      (i) => i >= 0 && i < orderedSlides.length
     );
     targets.forEach((i) => {
-      const slide = slides[i];
+      const slide = orderedSlides[i];
       if (!slide || slide.mediaType === "video") return;
       if (predecoded.current.has(slide.src)) return;
       const img = new window.Image();
@@ -228,18 +297,19 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
         img.decode().then(markDone).catch(markDone);
       }
     });
-  }, [active, slides]);
+  }, [active, orderedSlides]);
 
   const scrollToIndex = useCallback(
     (index: number) => {
       const el = containerRef.current;
       if (!el) return;
-      const clamped = Math.max(0, Math.min(slides.length - 1, index));
+      const clamped = Math.max(0, Math.min(orderedSlides.length - 1, index));
       const height = el.clientHeight || viewportHeightRef.current || 1;
       el.scrollTo({ top: clamped * height, behavior: reduceMotion ? "auto" : "smooth" });
     },
-    [reduceMotion, slides.length]
+    [reduceMotion, orderedSlides.length]
   );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const key = e.key;
@@ -257,12 +327,12 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
       }
       if (key === "End") {
         e.preventDefault();
-        scrollToIndex(slides.length - 1);
+        scrollToIndex(orderedSlides.length - 1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, scrollToIndex, slides.length]);
+  }, [active, scrollToIndex, orderedSlides.length]);
 
   const editorialFooter = (
     <div
@@ -271,9 +341,19 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
       }`}
     >
       <div className="flex w-[min(980px,100%)] flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.42em] text-white/55">
-          In the margins
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.42em] text-white/55">
+            Living cut · {attentionMode}
+          </p>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-white/55">
+            Attention {Math.round((attentionScore + 6) * 7.2)}%
+          </p>
+          {affinityTop ? (
+            <p className="text-xs uppercase tracking-[0.24em] text-white/70">
+              Drifted toward {affinityTop}
+            </p>
+          ) : null}
+        </div>
         <p className="font-[var(--font-display)] text-lg uppercase leading-tight text-white/85 drop-shadow-[0_10px_30px_rgba(0,0,0,0.65)] sm:text-2xl">
           For the full cut, connect on{" "}
           <a
@@ -290,12 +370,13 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
     </div>
   );
 
-  if (slides.length === 0) {
+  if (orderedSlides.length === 0) {
     return (
       <section className="relative flex h-screen min-h-[100dvh] items-center justify-center bg-[#05060b] px-6 text-center text-sm text-white/70">
         {editorialFooter}
         <div className="rounded-[38px] border border-white/15 bg-white/5 px-6 py-10 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-md">
-          No images yet. Add files to <code className="rounded bg-white/10 px-1">public/photos</code> and refresh to light up this view.
+          No images yet. Add files to <code className="rounded bg-white/10 px-1">public/photos</code> and
+          refresh to light up this view.
         </div>
       </section>
     );
@@ -330,16 +411,16 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
         {(() => {
           const windowRadius = 3;
           const windowStart = Math.max(0, active - windowRadius);
-          const windowEnd = Math.min(slides.length - 1, active + windowRadius);
+          const windowEnd = Math.min(orderedSlides.length - 1, active + windowRadius);
           const topPadding = windowStart * viewportHeight;
-          const bottomPadding = Math.max(0, slides.length - windowEnd - 1) * viewportHeight;
+          const bottomPadding = Math.max(0, orderedSlides.length - windowEnd - 1) * viewportHeight;
 
           return (
             <div
               className="relative flex flex-col"
               style={{ paddingTop: topPadding, paddingBottom: bottomPadding }}
             >
-              {slides.slice(windowStart, windowEnd + 1).map((slide, offset) => {
+              {orderedSlides.slice(windowStart, windowEnd + 1).map((slide, offset) => {
                 const idx = windowStart + offset;
                 const motionSafe = !reduceMotion;
                 const effectiveActive = motionSafe ? smoothActive : active;
@@ -348,11 +429,17 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                 const baseOpacity = motionSafe ? 1 - Math.min(0.12 * eased, 0.35) : 1;
                 const slideOpacity = introReady ? baseOpacity : 0;
                 const translateY = motionSafe ? (introReady ? 0 : 14) + eased * 4 : 0;
-                const transitionDelay = motionSafe && introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
-                const shouldPlay = slide.mediaType === "video" && !reduceMotion && Math.abs(idx - active) <= 1;
+                const transitionDelay =
+                  motionSafe && introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
+                const shouldPlay =
+                  slide.mediaType === "video" && !reduceMotion && Math.abs(idx - active) <= 1;
                 const mediaLabel = slide.title || "Image capture";
                 const altText =
-                  slide.mediaType === "video" ? "" : slide.title ? slide.title : formatAltFromSrc(slide.src);
+                  slide.mediaType === "video"
+                    ? ""
+                    : slide.title
+                      ? slide.title
+                      : formatAltFromSrc(slide.src);
 
                 return (
                   <article
@@ -412,7 +499,6 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
                       className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(600px_420px_at_20%_20%,rgba(49,246,255,0.24),transparent_62%),radial-gradient(600px_420px_at_85%_15%,rgba(255,90,31,0.2),transparent_65%)] opacity-70 mix-blend-screen"
                       aria-hidden
                     />
-
                   </article>
                 );
               })}
