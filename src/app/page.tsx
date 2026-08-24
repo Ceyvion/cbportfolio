@@ -24,13 +24,12 @@ export default async function Page() {
       )
     )
   );
-  const videoPoster = photoSlides[0]?.src ?? "/window.svg";
   const videoSlide: Slide = {
     src: "/a%20good%20friend.MOV",
     title: "A Good Friend",
     subtitle: "Short film · Video",
     mediaType: "video",
-    poster: videoPoster,
+    poster: "/a-good-friend-poster.jpg",
   };
   const slides: Slide[] = [videoSlide, ...photoSlides];
 

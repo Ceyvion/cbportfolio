@@ -1,9 +1,10 @@
 "use client";
+
 import Image from "next/image";
-import { siteConfig } from "@/lib/site";
 import { formatAltFromSrc } from "@/lib/alt";
+import { siteConfig } from "@/lib/site";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 
 export type Slide = {
   src: string;
@@ -29,6 +30,7 @@ function VideoSlide({
   ariaLabel?: string;
 }) {
   const ref = useRef<HTMLVideoElement | null>(null);
+  const [mediaReady, setMediaReady] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -61,40 +63,48 @@ function VideoSlide({
   }, [shouldPlay]);
 
   return (
-    <video
-      ref={ref}
-      src={src}
-      poster={poster}
-      className={className}
-      style={style}
-      aria-label={ariaLabel}
-      playsInline
-      muted
-      loop
-      autoPlay={shouldPlay}
-      preload={shouldPlay ? "auto" : "metadata"}
-    />
+    <div className={className} style={style}>
+      {poster ? (
+        <Image
+          src={poster}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          aria-hidden
+          className="object-cover"
+        />
+      ) : null}
+      <video
+        ref={ref}
+        src={src}
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ease-out ${
+          mediaReady && shouldPlay ? "opacity-100" : "opacity-0"
+        }`}
+        aria-label={ariaLabel}
+        playsInline
+        muted
+        loop
+        autoPlay={shouldPlay}
+        preload="metadata"
+        onTimeUpdate={(event) => {
+          const currentTime = event.currentTarget.currentTime;
+          if (mediaReady && currentTime < 0.25) setMediaReady(false);
+          if (!mediaReady && currentTime >= 1) setMediaReady(true);
+        }}
+      />
+    </div>
   );
 }
 
 export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   const [active, setActive] = useState(0);
-  const [smoothActive, setSmoothActive] = useState(0);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const scrollTargetRef = useRef(0);
-  const smoothActiveRef = useRef(0);
-  const smoothRafRef = useRef<number | null>(null);
-  const viewportHeightRef = useRef(1);
-  const [viewportHeight, setViewportHeight] = useState(1);
-  const [introReady, setIntroReady] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const predecoded = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    smoothActiveRef.current = smoothActive;
-  }, [smoothActive]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const activeRef = useRef(0);
+  const scrollRafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReduceMotion(media.matches);
     update();
@@ -113,189 +123,159 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
   }, []);
 
   useEffect(() => {
-    if (reduceMotion) {
-      setIntroReady(true);
-      return;
-    }
-    setIntroReady(false);
-    const id = requestAnimationFrame(() => setIntroReady(true));
-    return () => cancelAnimationFrame(id);
-  }, [slides.length, reduceMotion]);
-
-  const startSmooth = useCallback(() => {
-    if (reduceMotion || smoothRafRef.current !== null) return;
-    const step = () => {
-      const maxIndex = Math.max(0, slides.length - 1);
-      const target = Math.min(Math.max(scrollTargetRef.current, 0), maxIndex);
-      const prev = smoothActiveRef.current;
-      const delta = target - prev;
-      if (Math.abs(delta) < 0.001) {
-        smoothActiveRef.current = target;
-        setSmoothActive(target);
-        smoothRafRef.current = null;
-        return;
-      }
-      const next = prev + delta * 0.14;
-      smoothActiveRef.current = next;
-      setSmoothActive(next);
-      smoothRafRef.current = requestAnimationFrame(step);
-    };
-
-    smoothRafRef.current = requestAnimationFrame(step);
-  }, [reduceMotion, slides.length]);
-
-  useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const maxIndex = Math.max(0, slides.length - 1);
 
-    const measureHeight = () => {
-      const nextHeight = el.clientHeight || 1;
-      viewportHeightRef.current = nextHeight;
-      setViewportHeight(nextHeight);
+    const updateActive = () => {
+      scrollRafRef.current = null;
+      const height = el.clientHeight || 1;
+      const nextActive = Math.min(maxIndex, Math.max(0, Math.round(el.scrollTop / height)));
+      if (nextActive === activeRef.current) return;
+      activeRef.current = nextActive;
+      setActive(nextActive);
     };
 
-    const updateFromScroll = () => {
-      const height = viewportHeightRef.current || 1;
-      const target = Math.min(maxIndex, Math.max(0, el.scrollTop / height));
-      scrollTargetRef.current = target;
-      const nextActive = Math.round(target);
-      setActive((prev) => (prev === nextActive ? prev : nextActive));
-      startSmooth();
+    const onScroll = () => {
+      if (scrollRafRef.current !== null) return;
+      scrollRafRef.current = requestAnimationFrame(updateActive);
     };
 
-    const handleResize = () => {
-      measureHeight();
-      updateFromScroll();
-    };
+    const handleResize = () => updateActive();
 
-    measureHeight();
-    updateFromScroll();
-    el.addEventListener("scroll", updateFromScroll, { passive: true });
+    updateActive();
+    el.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", handleResize);
     window.addEventListener("orientationchange", handleResize);
     const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(handleResize)
-        : null;
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(handleResize) : null;
     resizeObserver?.observe(el);
+
     return () => {
-      el.removeEventListener("scroll", updateFromScroll);
+      el.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("orientationchange", handleResize);
       resizeObserver?.disconnect();
+      if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current);
     };
-  }, [slides.length, startSmooth]);
-
-  useEffect(() => {
-    if (reduceMotion) {
-      if (smoothRafRef.current !== null) {
-        cancelAnimationFrame(smoothRafRef.current);
-        smoothRafRef.current = null;
-      }
-      smoothActiveRef.current = active;
-      setSmoothActive(active);
-      return;
-    }
-    startSmooth();
-  }, [reduceMotion, active, startSmooth]);
-
-  useEffect(() => {
-    return () => {
-      if (smoothRafRef.current !== null) {
-        cancelAnimationFrame(smoothRafRef.current);
-      }
-    };
-  }, []);
-
-  // Preload and decode nearby images to avoid jank when they enter view
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const targets = [active - 1, active, active + 1, active + 2].filter(
-      (i) => i >= 0 && i < slides.length
-    );
-    targets.forEach((i) => {
-      const slide = slides[i];
-      if (!slide || slide.mediaType === "video") return;
-      if (predecoded.current.has(slide.src)) return;
-      const img = new window.Image();
-      img.decoding = "async";
-      img.src = slide.src;
-      const markDone = () => predecoded.current.add(slide.src);
-      img.onload = markDone;
-      img.onerror = markDone;
-      if (typeof img.decode === "function") {
-        img.decode().then(markDone).catch(markDone);
-      }
-    });
-  }, [active, slides]);
+  }, [slides.length]);
 
   const scrollToIndex = useCallback(
     (index: number) => {
       const el = containerRef.current;
       if (!el) return;
       const clamped = Math.max(0, Math.min(slides.length - 1, index));
-      const height = el.clientHeight || viewportHeightRef.current || 1;
-      el.scrollTo({ top: clamped * height, behavior: reduceMotion ? "auto" : "smooth" });
+      const height = el.clientHeight || 1;
+      el.scrollTo({
+        top: clamped * height,
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
     },
     [reduceMotion, slides.length]
   );
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const key = e.key;
-      if (key === "ArrowDown" || key === "PageDown") {
-        e.preventDefault();
+
+  const navigateToIndex = useCallback(
+    (index: number) => {
+      scrollToIndex(index);
+      requestAnimationFrame(() => containerRef.current?.focus({ preventScroll: true }));
+    },
+    [scrollToIndex]
+  );
+
+  const onSliderKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "ArrowDown" || event.key === "PageDown") {
+        event.preventDefault();
         scrollToIndex(active + 1);
-      }
-      if (key === "ArrowUp" || key === "PageUp") {
-        e.preventDefault();
+      } else if (event.key === "ArrowUp" || event.key === "PageUp") {
+        event.preventDefault();
         scrollToIndex(active - 1);
-      }
-      if (key === "Home") {
-        e.preventDefault();
+      } else if (event.key === "Home") {
+        event.preventDefault();
         scrollToIndex(0);
-      }
-      if (key === "End") {
-        e.preventDefault();
+      } else if (event.key === "End") {
+        event.preventDefault();
         scrollToIndex(slides.length - 1);
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [active, scrollToIndex, slides.length]);
+    },
+    [active, scrollToIndex, slides.length]
+  );
+
+  const topNavigation = (
+    <header
+      className="fixed inset-x-0 z-40 flex items-center justify-between px-4 sm:px-6"
+      style={{ top: "max(1rem, env(safe-area-inset-top))" }}
+    >
+      <h1 className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/80 sm:text-xs">
+        <span className="sr-only">CB Portfolio</span>
+        <span aria-hidden>Welcome</span>
+      </h1>
+      <div className="flex items-center gap-2">
+        <span className="mr-1 text-[10px] font-semibold tabular-nums tracking-[0.2em] text-white/55">
+          {String(active + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}
+        </span>
+        <button
+          type="button"
+          onClick={() => navigateToIndex(active - 1)}
+          disabled={active === 0}
+          aria-label="Previous frame"
+          className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/35 text-lg text-white transition-[transform,border-color,background-color,opacity] duration-150 ease-out hover:border-white/45 hover:bg-black/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.96] disabled:cursor-default disabled:opacity-30"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          onClick={() => navigateToIndex(active + 1)}
+          disabled={active === slides.length - 1}
+          aria-label="Next frame"
+          className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/35 text-lg text-white transition-[transform,border-color,background-color,opacity] duration-150 ease-out hover:border-white/45 hover:bg-black/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.96] disabled:cursor-default disabled:opacity-30"
+        >
+          ↓
+        </button>
+      </div>
+    </header>
+  );
 
   const editorialFooter = (
-    <div
-      className={`fixed inset-x-0 bottom-6 z-30 flex justify-center px-6 transition duration-700 ease-out ${
-        introReady ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-      }`}
+    <footer
+      className="fixed inset-x-0 z-40 flex justify-center px-4 sm:px-6"
+      style={{ bottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="flex w-[min(980px,100%)] flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.42em] text-white/55">
-          In the margins
-        </p>
-        <p className="font-[var(--font-display)] text-lg uppercase leading-tight text-white/85 drop-shadow-[0_10px_30px_rgba(0,0,0,0.65)] sm:text-2xl">
-          For the full cut, connect on{" "}
-          <a
-            href={siteConfig.instagram}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="text-white/95 underline decoration-[color:var(--accent)] decoration-2 underline-offset-4 transition hover:text-white"
+      <div className="flex w-[min(980px,100%)] justify-end">
+        <a
+          href={siteConfig.instagram}
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label="View CB Portfolio on Instagram"
+          className="group grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-black/35 text-white transition-[transform,border-color,background-color,color] duration-150 ease-out hover:border-[color:var(--accent)]/70 hover:bg-black/60 hover:text-[color:var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.96]"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="transition-transform duration-150 ease-out group-hover:scale-105"
           >
-            Instagram
-          </a>
-          .
-        </p>
+            <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+            <circle cx="12" cy="12" r="3.75" />
+            <circle cx="17.4" cy="6.75" r="0.8" fill="currentColor" stroke="none" />
+          </svg>
+        </a>
       </div>
-    </div>
+    </footer>
   );
 
   if (slides.length === 0) {
     return (
       <section className="relative flex h-screen min-h-[100dvh] items-center justify-center bg-[#05060b] px-6 text-center text-sm text-white/70">
-        {editorialFooter}
-        <div className="rounded-[38px] border border-white/15 bg-white/5 px-6 py-10 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-md">
-          No images yet. Add files to <code className="rounded bg-white/10 px-1">public/photos</code> and refresh to light up this view.
+        <div className="rounded-[38px] border border-white/15 bg-white/5 px-6 py-10 shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
+          No images yet. Add files to{" "}
+          <code className="rounded bg-white/10 px-1">public/photos</code> and refresh.
         </div>
       </section>
     );
@@ -307,118 +287,76 @@ export function ImmersiveSlider({ slides }: { slides: Slide[] }) {
       className="relative h-screen min-h-[100dvh] overflow-hidden bg-[#05060b] text-white"
     >
       <div
-        className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(900px_900px_at_12%_20%,rgba(49,246,255,0.22),transparent_60%),radial-gradient(1000px_1000px_at_90%_10%,rgba(255,90,31,0.18),transparent_60%),radial-gradient(800px_800px_at_50%_90%,rgba(199,255,74,0.14),transparent_60%)]"
+        className="pointer-events-none fixed inset-0 z-20 opacity-50"
+        style={{
+          backgroundImage:
+            "radial-gradient(700px 540px at 14% 14%, rgba(49,246,255,0.22), transparent 62%), radial-gradient(760px 520px at 88% 12%, rgba(255,90,31,0.18), transparent 64%), repeating-linear-gradient(0deg, rgba(255,255,255,0.025), rgba(255,255,255,0.025) 1px, transparent 1px, transparent 8px)",
+          mixBlendMode: "screen",
+        }}
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-40 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.06),rgba(255,255,255,0.06)_1px,transparent_1px,transparent_7px)]"
+        className="pointer-events-none fixed inset-0 z-30 bg-gradient-to-t from-black/80 via-transparent to-black/40"
         aria-hidden
       />
-      <div
-        className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent"
-        aria-hidden
-      />
+      {topNavigation}
       {editorialFooter}
 
       <div
         ref={containerRef}
-        className="relative z-10 h-full overflow-y-auto snap-y snap-mandatory overscroll-contain"
-        style={{ scrollBehavior: reduceMotion ? "auto" : "smooth" }}
+        role="group"
+        aria-roledescription="carousel"
+        aria-label={`Portfolio frames. Frame ${active + 1} of ${slides.length}.`}
+        tabIndex={0}
+        onKeyDown={onSliderKeyDown}
+        className="relative z-10 h-full overflow-y-auto snap-y snap-mandatory overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(820px_820px_at_32%_20%,rgba(49,246,255,0.12),transparent_60%),radial-gradient(900px_900px_at_70%_-10%,rgba(255,90,31,0.12),transparent_60%),radial-gradient(700px_700px_at_46%_90%,rgba(199,255,74,0.1),transparent_60%)]" />
-
-        {(() => {
-          const windowRadius = 3;
-          const windowStart = Math.max(0, active - windowRadius);
-          const windowEnd = Math.min(slides.length - 1, active + windowRadius);
-          const topPadding = windowStart * viewportHeight;
-          const bottomPadding = Math.max(0, slides.length - windowEnd - 1) * viewportHeight;
+        {slides.map((slide, index) => {
+          const shouldPlay = slide.mediaType === "video" && !reduceMotion && index === active;
+          const altText =
+            slide.mediaType === "video" ? "" : slide.title || formatAltFromSrc(slide.src);
 
           return (
-            <div
-              className="relative flex flex-col"
-              style={{ paddingTop: topPadding, paddingBottom: bottomPadding }}
+            <article
+              key={`${slide.src}-${index}`}
+              data-index={index}
+              aria-roledescription="slide"
+              aria-label={`${index + 1} of ${slides.length}: ${slide.title}`}
+              aria-current={index === active ? "true" : undefined}
+              aria-hidden={index === active ? undefined : true}
+              className="relative h-screen min-h-[100dvh] snap-start bg-[#07080d]"
+              style={{
+                contain: "layout paint style",
+                contentVisibility: "auto",
+                containIntrinsicSize: "100dvh",
+              }}
             >
-              {slides.slice(windowStart, windowEnd + 1).map((slide, offset) => {
-                const idx = windowStart + offset;
-                const motionSafe = !reduceMotion;
-                const effectiveActive = motionSafe ? smoothActive : active;
-                const distance = Math.abs(idx - effectiveActive);
-                const eased = distance < 0.001 ? 0 : distance;
-                const baseOpacity = motionSafe ? 1 - Math.min(0.12 * eased, 0.35) : 1;
-                const slideOpacity = introReady ? baseOpacity : 0;
-                const translateY = motionSafe ? (introReady ? 0 : 14) + eased * 4 : 0;
-                const transitionDelay = motionSafe && introReady ? `${Math.min(idx, 10) * 24}ms` : "0ms";
-                const shouldPlay = slide.mediaType === "video" && !reduceMotion && Math.abs(idx - active) <= 1;
-                const mediaLabel = slide.title || "Image capture";
-                const altText =
-                  slide.mediaType === "video" ? "" : slide.title ? slide.title : formatAltFromSrc(slide.src);
-
-                return (
-                  <article
-                    key={`${slide.src}-${idx}`}
-                    data-index={idx}
-                    className="relative h-screen min-h-[100dvh] snap-start"
-                    style={{
-                      transform: `translateY(${translateY}px)`,
-                      opacity: slideOpacity,
-                      transition: motionSafe
-                        ? "transform 900ms cubic-bezier(.22,.61,.36,1), opacity 900ms ease"
-                        : "none",
-                      transitionDelay,
-                      willChange: "transform, opacity",
-                      backfaceVisibility: "hidden",
-                      WebkitBackfaceVisibility: "hidden",
-                    }}
-                  >
-                    <div
-                      className="absolute inset-0 overflow-hidden"
-                      style={{
-                        backfaceVisibility: "hidden",
-                        WebkitBackfaceVisibility: "hidden",
-                        transform: "translateZ(0)",
-                        WebkitTransform: "translateZ(0)",
-                      }}
-                    >
-                      {slide.mediaType === "video" ? (
-                        <VideoSlide
-                          src={slide.src}
-                          poster={slide.poster}
-                          shouldPlay={shouldPlay}
-                          ariaLabel={mediaLabel}
-                          className="h-full w-full object-cover"
-                          style={{
-                            backfaceVisibility: "hidden",
-                            WebkitBackfaceVisibility: "hidden",
-                          }}
-                        />
-                      ) : (
-                        <Image
-                          src={slide.src}
-                          alt={altText}
-                          fill
-                          sizes="100vw"
-                          className="object-cover"
-                          style={{
-                            backfaceVisibility: "hidden",
-                            WebkitBackfaceVisibility: "hidden",
-                          }}
-                          priority={idx === 0}
-                          fetchPriority={idx === 0 ? "high" : "auto"}
-                        />
-                      )}
-                    </div>
-                    <div
-                      className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(600px_420px_at_20%_20%,rgba(49,246,255,0.24),transparent_62%),radial-gradient(600px_420px_at_85%_15%,rgba(255,90,31,0.2),transparent_65%)] opacity-70 mix-blend-screen"
-                      aria-hidden
-                    />
-
-                  </article>
-                );
-              })}
-            </div>
+              {slide.mediaType === "video" ? (
+                <VideoSlide
+                  src={slide.src}
+                  poster={slide.poster}
+                  shouldPlay={shouldPlay}
+                  ariaLabel={slide.title || "Portfolio film"}
+                  className="absolute inset-0 overflow-hidden"
+                />
+              ) : (
+                <div className="absolute inset-x-4 bottom-20 top-16 sm:inset-x-10 sm:bottom-16 sm:top-20">
+                  <Image
+                    src={slide.src}
+                    alt={altText}
+                    fill
+                    sizes="(max-width: 640px) calc(100vw - 2rem), calc(100vw - 5rem)"
+                    className="object-contain drop-shadow-[0_30px_70px_rgba(0,0,0,0.48)]"
+                    priority={index === 0}
+                    loading={index === 0 ? undefined : index <= active + 1 ? "eager" : "lazy"}
+                    fetchPriority={index === 0 ? "high" : "auto"}
+                    draggable={false}
+                  />
+                </div>
+              )}
+            </article>
           );
-        })()}
+        })}
       </div>
     </section>
   );

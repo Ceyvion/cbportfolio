@@ -2,8 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Serve images as-is from public/ without on-the-fly optimization
-    unoptimized: true,
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [480, 640, 768, 960, 1200, 1600, 1920],
+    minimumCacheTTL: 31536000,
   },
 };
 
