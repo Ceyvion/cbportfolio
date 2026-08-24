@@ -16,7 +16,7 @@ export const siteConfig = {
   author: "CB",
   twitter: "@cbstudio",
   email: "hello@cb.studio",
-  instagram: "https://www.instagram.com/cb.studio",
+  instagram: "https://www.instagram.com/ceyvio",
 };
 
 export type SiteConfig = typeof siteConfig;
